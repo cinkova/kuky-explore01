@@ -1,4 +1,4 @@
-# Network processing
+# Network preprocessing {#chapter:network-preprocessing}
 I have created one full table of annotated ArgM spans (table `argumentativeSpanTextsMetadata` as `.rds` or `.tsv` ) and a table of spans with explicit links (drawn by annotators), which I enhanced with automatic links between Rules and Conclusions `kuky_argm_with_all_links_restored` (`.rds` or `.tsv`).
 I want to use this table in the future to generate a list of nodes and a list of edges in a network graph. 
 At this point, I will not care about the graph orientation. This means that I will not assume that the columns describing spans to the left (henceforth *source spans*) cover all spans listed in `argumentativeSpanTextsMetadata` and accept that a span can only occur to the right (as a *target span*).
@@ -10,7 +10,7 @@ Regarding duplicate edges (different directions), I believe that it is easier to
 ```{r}
 library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
 library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
-library(igraph, warn.conflicts = FALSE, quietly = TRUE)
+#library(igraph, warn.conflicts = FALSE, quietly = TRUE)
 newdata <- read_rds("kuky_data/kuky_argm_with_all_links_restored.rds")
 colnames(newdata)
 
@@ -66,17 +66,13 @@ joined_conclusions <- conclusions %>%
              count_total_parents.x == count_total_parents.y ~ "left_equal", 
              count_total_parents.x < count_total_parents.y ~ "left_lower")) %>%
 ungroup() %>% 
- # filter(has_left_fewer_parents != "left_greater") %>%
+  filter(has_left_fewer_parents != "left_greater") %>%
   distinct(joinedID, .keep_all = TRUE) 
-# originally I wanted to deduplicate the links but then I recalled that 
-# the big table (here loaded as newdata) is meant to contain all spans in the 
-# left part (span_id etc.). If the links were only one-directional, some spans
-# would never appear in the span_id column. When I reconstructed the links 
-# between Rules and Conclusions, I created them first with Rules as Sources 
-# (left) and Conclusions as targets (right), but then I reconstructed  
+# I have deduplicated links between conclusions that had a difference in the number of supporting arguments. Now the "lighter" conclusion is always source and the "heavier" always target. 
 
 ```
-
+ 
+ Here I just clean the column structure so that I can bind this table with rows to the `newdata` table. 
 
 ```{r}
 colnames(joined_conclusions)
@@ -113,7 +109,7 @@ joined_conclusions %<>%
             relationship = "many-to-many") %>% 
   #relocate(all_of(colnames_intersect) ) %>%
   relocate(all_of(newdatacols))
-joined_conclusions %<>% mutate(link_type = "between_conclusions") 
+joined_conclusions %<>% mutate(link_type = "linked_conclusions") 
 ```
 
 ```{r}
@@ -127,6 +123,7 @@ length(dupl_all)
 # these are Conclusion span ids that are connected to other conclusions. 
 # Theoretically they 
 ```
+The number above means the number of unique Conclusion spans in the `joined_conclusions` table, no matter whether source or target. 
 
 ```{r}
 # check in joined conclusions whether the source conclusions on the left contain all
@@ -138,16 +135,101 @@ target_alone <- setdiff(target_joined_concl,source_joined_concl)
 
 
 ```{r}
-joined_conclusions %>% filter(linked_span_id %in% target_alone)
+joined_conclusions %>% filter(linked_span_id %in% target_alone) %>% nrow()
+```
+
+So there are some conclusions that are never sources. I have inspected the table randomly and found that the targets were later in the texts than sources, which makes sense. 
+
+```{r}
+all <- bind_rows(newdata, joined_conclusions)
+slice(all, c(1:3, 6203:6205, (6205 + 540):(6205 + 542)))
+
 ```
 
 
 ```{r}
-argm_labels
+all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
 ```
 
 
+```{r}
+all_linked_sources <- all %>% filter(!is.na(linked_span_id))
+```
 
+```{r}
+all_wrongly_unlinked <- semi_join(all_unlinked_sources, all_linked_sources, 
+                                  by = "span_id"
+                                  )
+```
+
+```{r}
+#Sanity check, should return only Conclusion-Conclusion links
+filter(all_linked_sources, span_id %in% all_wrongly_unlinked$span_id ) %>%
+  select(label, linked_label) %>% group_by(label, linked_label) %>% count()
+```
+
+```{r message=FALSE}
+all %<>% anti_join(all_wrongly_unlinked) # removed rows that had no target but the same sources had a target on a different row. This table became by 314 rows shorter, which corresponds to the number of rows in all_wrongly_unlinked.  Joining by all columns, so it is practically like filtering by span_id and is.na( linked_span_id). 
+```
+
+```{r message=FALSE}
+all_wrongly_unlinked_targets <- semi_join(all_unlinked_sources, 
+                                          joined_conclusions,
+                                          by = c("span_id" = "linked_span_id")
+                                          ) 
+#inspection result: all are unlinked conclusions, OK
+all %<>% anti_join(all_wrongly_unlinked_targets) # this removes 157 rows
+ # This is not all rows from all_wrongly_unlinked_targets, but this is probably
+ # because some target ids occurred on several rows in the linked conclusions table
+ # while they obviously occurred only once in the unlinked sources table. 
+
+```
+
+Trying to check for wrongly unlinked sources in general
+
+```{r}
+all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
+all_linked_sources <- all %>% filter(!is.na(linked_span_id))
+semi_join(all_linked_sources, all_unlinked_sources, 
+                  by = c("linked_span_id" = "span_id")
+                  ) %>% 
+  group_by(label, linked_label) %>% count()
+# Wrongly unlinked are conclusions that are referred to from Narratives and Leqal Questions. 
+```
+
+```{r}
+# identify rows of these wrongly unlinked conclusions (linked from Narratives and LQ)
+semi_join(all_unlinked_sources, all_linked_sources, 
+          by = c("span_id" = "linked_span_id")
+          ) %>% group_by(label, linked_label) %>% count()
+# obviously, some of these conclusions were linked to from several spans, 
+# therefore I observe again fewer rows in the unlinked spans table. 
+```
+
+```{r}
+wrongly_unlinked_from_others <- semi_join(all_unlinked_sources, all_linked_sources, 
+          by = c("span_id" = "linked_span_id")
+          )
+```
+
+```{r message=FALSE}
+all <- anti_join(all, wrongly_unlinked_from_others)
+all %>% group_by(label, linked_label) %>% count()
+```
+
+At this point, I have a table of relations between spans, including spans without any relations. 
+I have done my best to deduplicate this table and to remove rows that presented a span as unlinked when they in fact had a link, which they obtained during my (re)construction of links which were implied by the explicit links and the logic of the annotation.
+
+This is not yet a real nodes or edges table!!! 
+
+A nodes table will be created from sources and targets combined, and the edges table will contain only rows from this table that are not `NA` in `linked_span_id`. 
+
+I will store this table. In the next section, I will use `igraph` to create a network and provide the spans with further info, such as degrees or cliques or communities and try and use these values as features in further modeling. 
+
+```{r}
+write_rds(all, "kuky_data/kuky_argm_total_links.rds")
+write_tsv(all, "kuky_data/kuky_argm_total_links.tsv")
+```
 
 
 

@@ -1,0 +1,26 @@
+# Guide to the data files in the `kuky_data` folder
+
+I will list the files in the order of coming into existence. 
+
+-   `argumentative.json`: from KUKY 1.0 on Lindat
+
+-   `argumentativeSpanTextsMetadata.rds/.tsv`: produced by Chapter \@ref(chapter:first-preprocessing)
+    
+  - added span text derived from the offsets in the annotation and document metadata to each span. No links yet (at least not in an immediately usable form).
+  
+- `kuky_stoplight(.rds/.tsv)`: produced by Chapter \@ref(chapter:first-preprocessing)
+
+ - added span text derived from the offsets in the annotation
+ 
+- `kuky_argm_with_all_links_restored(.rds/.tsv)`: produced by Chapter \@ref(chapter:first-preprocessing)
+
+ - integrated links from the annotation and automatically adding links between Conclusion and Rules when they shared a Narrative (as I planned it when I designed the annotation in Gloss to save annotators' effort). 
+ 
+- `kuky_argm_total_links.rds/.tsv`: produced by Chapter \@ref(chapter:network-preprocessing)
+
+ - added links between Conclusions that share common Narratives. 
+ 
+ - removed rows representing some spans as unlinked when they got linked during the processing. This applies virtually only to Conclusions. 
+ 
+ - At this point, I can generate the two tables of nodes and edges needed for a network graph in the `igraph` framework. I will compute diverse features of the spans and export the graph again to tibbles. By this, I am going to gain some machine learning features that could model how spans are rhetorically linked together. 
+ 

@@ -1,0 +1,325 @@
+# Data Preprocessing of KUKY 1.0
+
+## KUKY JSON structure
+
+KUKY comes as a JSON file with three top objects:
+
+-   documents
+
+-   labels
+
+-   annotations.
+
+I extract `annotations` and `documents`. Documents contain document
+metadata and document texts.Annotations contain labels, document IDs,
+and offsets. There are two types of annotation: `Stoplight` and `ArgM`.
+
+## Documents annotated by several annotators
+
+This data set keeps multiple annotations performed for IAA checks.
+
+> ***CAUTION*** De-duplicate the data by annotation `owner` before
+> machine learning; that is, do not combine annotations of several
+> owners within one document, because the annotations differ not only by
+> labels but also by offsets!
+
+```{r message=FALSE}
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
+library(jsonlite, warn.conflicts = FALSE, quietly = TRUE)
+wdpath <- "C:/Users/cinkova/kuky-explore01/kuky_report_bookdown/"
+# working directory
+kukypath <- "C:/Users/cinkova/kuky-explore01/kuky_report_bookdown/kuky_data/argumentative.json"
+# location of the original corpus file
+datafolderpath <- "C:/Users/cinkova/kuky-explore01/kuky_report_bookdown/kuky_data/"
+# location of the folder containing the corpus 
+# - other data objects will go here as well
+setwd(wdpath)
+kuky <- read_json(kukypath, simplifyVector = FALSE)
+docs <- kuky[[1]] %>% 
+  purrr::map_df(bind_rows) %>%
+  mutate(across(where(is.list), unlist))
+#docs converted to a tibble 
+if (!exists("annots")  &  file.exists(str_c(datafolderpath, "argumentativeSpanTextsMetadata.rds", sep = "/"))) {
+annots <- read_rds("kuky_data/argumentativeSpanTextsMetadata.rds")
+} else if (!exists("annots") & !file.exists(str_c(datafolderpath, "argumentativeSpanTextsMetadata.rds", sep = "/"))) {
+  stop ("Please run this script from the start to obtain the 'annots' object.")
+} else {
+
+annots <- kuky[[3]] %>% 
+  map(enframe) %>%
+  # could not bind rows just so, 
+  # probably due to non-empty list columns "linked_rules", "linked_conclusions" 
+  map(pivot_wider) %>% 
+  # enframe returned a df with 2 columns: name and value
+  # df had to be transformed 
+  bind_rows()
+# df still considers each column a list
+annots %<>% 
+  mutate(across(c("doc_id", "doc_name", 
+                  "task_type", "label", "start", "end", 
+                  "span_id", "type", "owner"), ~ unlist(.x))) %>% 
+  # columns unlisted to vectors, except "linked_rules/conclusions", 
+  # which remained lists of vectors. 
+  # Mind to keep empty elements if you ever tidyr::unnest_longer them. 
+  left_join(docs, by = c("doc_id", "doc_name"))
+# doc metadata and document texts added
+annots %<>% mutate(span_text = str_sub(plainText, start=start, end=end))
+# added span texts by extraction from the documents using the offsets.
+saveRDS(annots, file = "kuky_data/argumentativeSpanTextsMetadata.rds")
+write_tsv(annots, file = "kuky_data/argumentativeSpanTextsMetadata.tsv")
+}
+```
+
+```{r}
+# check that all spans contain text, must return zero
+annots %>% 
+  filter(nchar(span_text) == 0 | is.na(span_text)| is.null(span_text)) %>% 
+  nrow()
+```
+
+## Links between segments
+
+Both annotations are labeled spans with character offsets. In addition,
+`ArgM` also contains links between spans. The purpose is to model with
+which Rules and which Narratives support which Conclusions. One would
+expect links from Rules and Narratives to Conclusions, but the manual
+annotation was more ergonomic with linking "Narratives" to their
+corresponding "Rules" and "Conclusions". Also "Legal Questions" link to
+"Conclusions" \@ref(fig:kukylinks). The links between "Rules" and
+"Conclusions" are thus only implicit. Here I will insert the links
+between Rules and Conclusions to make them explicit.
+
+![Links in the ArgM
+annotation](images/kukydoc.svg){#fig:kukylinks
+.illustration}
+
+```{r}
+if (!exists("annots")  &  file.exists(str_c(datafolderpath, "argumentativeSpanTextsMetadata.rds", sep = "/"))) {
+annots <- read_rds("kuky_data/argumentativeSpanTextsMetadata.rds")
+} else if (!exists("annots") & !file.exists(str_c(datafolderpath, "argumentativeSpanTextsMetadata.rds", sep = "/"))) {
+  stop ("Please run this script from the start to obtain the 'annots' object.")
+} else {
+annots_unnested_links <- annots %>% 
+  unnest_longer(linked_conclusions, keep_empty = TRUE) %>%
+  unnest_longer(linked_rules, keep_empty = TRUE)
+}
+# The "linked_" columns were nested lists of vectors. 
+# Now vectors with more than one element of one type unnested to rows 
+# and spans without links were preserved, too.
+# But mind that one row can still represent two links, each to a different label.
+# I will resolve this later with pivoting the tibble longer. 
+```
+
+```{r}
+stoplight <- annots_unnested_links %>% filter(task_type == "Stoplight")
+# store stoplight annotation that has no links by definition
+```
+
+```{r}
+argm <- annots_unnested_links %>% filter(task_type == "ArgM")
+duplargm <- argm %>% count(span_id, sort = TRUE) # deduplicated span_IDs
+# If a Narrative or Legal Question span is linked to e.g. 5 Rules and one Conclusion, it is
+# going to produce five rows in this table. So the number of rows in this table is the total number of annotated ArgM. 
+# argm %>% filter(span_id == duplargm$span_id[1])
+# store argm annotation for further processing
+```
+
+```{r}
+argm_labels <- distinct(argm, label) %>% pull()
+argm_labels # the actual Czech span labels
+```
+
+```{r}
+names(annots_unnested_links)
+```
+
+```{r}
+argm_labels[c(1, 2, 6)] # I need these to remain correctly encoded
+```
+
+```{r}
+long_argm <- argm %>% 
+  pivot_longer(cols = starts_with("linked"), 
+               names_to ="link_type", 
+               values_to= "linked_span_id"
+              ) %>% 
+  mutate(linked_label = case_when(
+    link_type == "linked_rules" ~ argm_labels[6], 
+    link_type == "linked_conclusions" ~ argm_labels[1],
+    link_type == "linked_legal_questions" ~ argm_labels[3],
+    link_type == "linked_narratives" ~ argm_labels[2]
+    )) %>% distinct()
+# Long data frame with each row representing one link 
+# (each link type on a separate row, as envisaged above). 
+# Most links are empty. 
+```
+
+```{r}
+explicit_links <- long_argm %>% filter(!is.na(linked_span_id)) %>% 
+  filter(label != linked_label) %>% 
+  distinct()
+# deduplicated long_argm without empty links
+
+```
+
+```{r}
+# deduplicated long_argm, only rows with empty links
+unlinked_long_argm <- long_argm %>% filter(is.na(linked_span_id)) %>% 
+  filter(label != linked_label) %>% distinct(span_id, owner, .keep_all = TRUE)
+# These are rows to be added back later. 
+# NB: Rules are all empty because they are only referenced by others.
+# I will insert their implicit links to Conclusions and add them to linked_argm.
+# All rules that acquire links will be removed from here. 
+# Only Rules that were not referenced in any other span are going to stay. 
+```
+
+```{r}
+# adding info about the linked spans (most important: span text!)
+linked_argm <- explicit_links %>% 
+  right_join(long_argm, 
+             by = c("doc_id" = "doc_id", 
+                    "owner" = "owner",
+                    "linked_span_id" = "span_id",
+                    "linked_label" = "label", 
+                    "link_type" = "link_type"
+                    ), keep = TRUE
+             ) %>% 
+  #select(!c(linked_label.y,linked_span_id.y, link_type.y)) %>% 
+  # linked_span.id.y etc. can create duplicities. Example: x is a Legal Question
+  # linked to a Conclusion, which in turn is linked to two different Narratives. 
+  # The Narratives are irrelevant here, and therefore we need just one 
+  # row representing the link between the Legal Question and Narrative. 
+  # This issue is real, although it was rare (10 cases of max 3 repeated values)
+  filter(label.x != linked_label.x) %>% 
+  filter(link_type.x == link_type.y) %>%
+  distinct()
+
+```
+
+```{r}
+linked_argm %>% count(link_type.y)
+```
+
+```{r}
+names(linked_argm)
+```
+
+I will create a table of linked rules separately and reverse the order
+of columns so that the links go from Rules to Conclusions and
+Narratives.
+
+```{r}
+linked_rules <- linked_argm  %>% 
+  filter(linked_label.x == argm_labels[6])
+x2y_cols_linked_rules <- linked_rules %>% select(ends_with(".x")) %>%
+  rename_with(., .fn = ~ str_replace(.x, "\\.x", ".y"))
+y2x_cols_linked_rules <- linked_rules %>% select(ends_with(".y")) %>%
+  rename_with(., .fn = ~ str_replace(.x, "\\.y", ".x"))
+linked_rules <- bind_cols(y2x_cols_linked_rules, x2y_cols_linked_rules) 
+
+```
+
+```{r}
+#check, should return zero
+(names(linked_rules) != names(linked_argm)) %>% sum()  # this returns zero as it should
+#but the values in the columns about linking are partly nonsensical
+```
+
+```{r}
+#the final linked_rules table
+linked_rules %<>% 
+  mutate(linked_label.x = label.y,
+         linked_span_id.x = span_id.y, 
+         link_type.x = 
+           case_when(label.y == argm_labels[1] ~ "linked_conclusions",
+                     label.y == argm_labels[2] ~  "linked_narratives",
+                     label.y == argm_labels[3] ~ "linked_legal_questions"
+                         ))
+
+```
+
+```{r}
+# adding linked_rules to linked argm: new variable linked_argm_incl_rules
+linked_argm_incl_rules <- bind_rows(linked_rules, linked_argm)
+```
+
+The variable `linked_argm_incl_rules` contains all links I harvested
+either directly or by inverting the links to Rules, thereby showing the
+rules.
+
+```{r}
+#cleanse unlinked_long_argm from the actually linked rules
+linked_spans_ids <- linked_argm_incl_rules$span_id.x 
+unlinked_long_argm %<>% 
+  filter(!(span_id %in% linked_spans_ids)) 
+```
+
+Here I have cleaned the table of unlinked spans from spans that had
+links (Rules that had been referred to from conclusions or legal
+questions).
+
+## Sanity check:
+
+```{r}
+linked_distinct_without_rules <- linked_argm %>% distinct(span_id.x) %>% pull()
+unlinked_distinct <- unlinked_long_argm %>% distinct(span_id) %>% pull()
+linked_rules_distinct <- linked_rules %>% distinct(span_id.x) %>% pull()
+total_spans <- length(linked_distinct_without_rules) + 
+  length(unlinked_distinct) +
+  length(linked_rules_distinct)
+```
+
+There are `r nrow(duplargm)` ArgM spans. Thereof are
+`r length(unlinked_distinct)` unlinked spans (cleared of Rules that are
+actually linked but invisible because they are always just
+`linked_span_id` and never in the `span_id` due to the annotation
+scheme). Then there are two tables with linked spans. When I deduplicate
+their `span_id`s, I get `r length(linked_rules_distinct)` spans with the
+Rule spans made visible and `r length(linked_distinct_without_rules)`
+spans labeled as Narratives, Legal Questions, or Conclusions. They
+indeed total to `r total_spans`.
+
+## Produce datasets
+
+I am going to produce RDS objects and `.tsv` files with both annotations
+(Stoplight and ArgM). The code below is mostly renaming columns in the
+two ArgM subsets (linked spans vs. unlinked spans)
+
+```{r results='hide'}
+names(unlinked_long_argm)
+```
+
+```{r}
+names(linked_argm_incl_rules)
+```
+
+```{r}
+var_to_delete <- c("linked_label.y", "linked_span_id.y", "linked_span_id.y", 
+                   "link_type.y", "Anonymized.y", "RecipientIndividuation.y", 
+                   "RecipientType.y", "AuthorType.y", "Bindingness.y", 
+                   "Objectivity.y", "LegalActType.y", "ParentDocumentID.y", 
+                   "DocumentVersion.y", "SyllogismBased.y", "Readability.y", 
+                   "plainText.y", "note.y", "owner.y", "type.y", "label.y", 
+                   "task_type.y", "doc_name.y", "doc_id.y", "span_id.y"
+                   )
+linked_argm_incl_rules %<>% 
+  select(!any_of(var_to_delete)) %>% 
+    rename_with(.fn = ~ str_remove(.x, "\\.x")) %>% 
+  rename_with(.fn = ~ str_replace(.x, 
+                                   "(start|end|span_text)(\\.y)", 
+                                   "linked_span_\\1")) %>% 
+  rename_with(.fn = ~ str_replace(.x, "_span_span", "_span")) 
+```
+
+```{r}
+unlinked_long_argm  %<>% mutate(across(c(link_type, linked_label), ~ NA))
+```
+
+```{r}
+kuky_argm_with_all_links_restored <- linked_argm_incl_rules %>% bind_rows(unlinked_long_argm)
+write_rds(kuky_argm_with_all_links_restored, "kuky_data/kuky_argm_with_all_links_restored.rds")
+write_tsv(kuky_argm_with_all_links_restored, "kuky_data/kuky_argm_with_all_links_restored.tsv")
+write_rds(stoplight, "kuky_data/kuky_stoplight.rds")
+write_tsv(stoplight, "kuky_data/kuky_stoplight.tsv")
+```

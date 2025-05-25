@@ -26,8 +26,10 @@ I will list the files in the order of coming into existence.
 
  - added links between Conclusions that share common Narratives. 
  
- - removed rows representing some spans as unlinked when they got linked during the processing. This applies virtually only to Conclusions. 
+ - I wanted to remove rows representing some spans as unlinked when they got linked during the processing, but it caused a partial data loss. I was not able to trace the problem, so I did not de-duplicate the future edges.
  
- - At this point, I can generate the two tables of nodes and edges needed for a network graph in the `igraph` framework. I will compute diverse features of the spans and export the graph again to tibbles. By this, I am going to gain some machine learning features that could model how spans are rhetorically linked together. 
+- `vertices_df`: created in Chapter \ref@(chapter:network-analysis). Here I removed some columns irrelevant as machine-learning features. On the other hand, I added a few features concerning the lengths and positions of the span texts, including tokenization and sentence chunking. 
 
-
+- `edges_df`: created in Chapter \ref@(chapter:network-analysis). I de-duplicated the edges between vertices that just swapped order. 
+ 
+ 

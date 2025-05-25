@@ -1,4 +1,4 @@
-# Network Analysis
+# Network Analysis {#chapter:network_analysis}
 
 In the previous chapter, I prepared a table of edges for the entire ArgM data. In this chapter, I am going to create the input files for a network graph: a table of nodes and a table of edges. 
 I will load these into an [`igraph`](https://r.igraph.org/index.html) object and add network characteristics to the nodes to describe their connectedness. 
@@ -6,6 +6,8 @@ I will load these into an [`igraph`](https://r.igraph.org/index.html) object and
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
 library(igraph, warn.conflicts = FALSE, quietly = TRUE)
+library(tokenizers, warn.conflicts = FALSE, quietly = TRUE)
+library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
 ```
 
  
@@ -14,6 +16,8 @@ library(igraph, warn.conflicts = FALSE, quietly = TRUE)
 mydata <- read_rds("kuky_data/kuky_argm_total_links.rds")
 colnames(mydata)
 ```
+
+## Vertices (Nodes)
 
 ```{r vertices}
 vertices_sourcespans <- mydata %>% select(!starts_with("link")) 
@@ -29,25 +33,80 @@ vertices_targetspans <- mydata %>%
 if (!identical(colnames(vertices_sourcespans), colnames(vertices_targetspans))) {
 stop("Data frames of vertices of source spans and vertices of target spans must have identical column names!")
 }
-vertices_df <- bind_rows(vertices_sourcespans)  %>% relocate(span_id) %>% distinct()
+vertices_df <- bind_rows(vertices_sourcespans) %>% relocate(span_id) %>% distinct()
 ```
 
+### Sanity check
+`vertices_df` must contain the same `span_id`s as span_id in `argm.rds`. 
 
 ```{r}
-argm_labels_df <-  argm %>% select(span_id, label) %>% group_by(span_id, label) %>% count()
-missing <- anti_join(argm_labels_df, vertices_df, by = "span_id")
-
+argm_spans <- read_rds("kuky_data/argm.rds") %>% pull(span_id)
+vertices_spans <- vertices_df %>% pull(span_id)
+setdiff(argm_spans, vertices_spans); setdiff(vertices_spans, argm_spans)
+rm(argm_spans, vertices_spans)
 ```
-
+### Get rid of superfluous columns
 
 ```{r}
-all %>% filter(span_id %in% missing$span_id)
+vertices_df %<>% select(!c(task_type, type, note))
 ```
+
+### Additional span features
+
+- span's relative position in the document 
+- span length
+- relative span length
+- token count in span, neglecting (hopefully most) markup (markdown, html) with a regular expression
+- sentence count in span, ditto.
 
 ```{r}
-newdata %>% filter(span_id %in% missing$span_id) 
+vertices_df %<>% group_by(doc_id) %>% 
+  mutate(max_end = max(end)) %>% 
+  rowwise() %>% 
+  mutate(rel_start = round(start/max_end, 2), 
+         rel_end = round(end/max_end, 2),
+         span_length = (end - start )
+         ) %>% 
+  mutate(rel_length = round(span_length/max_end, 4)) %>%
+  ungroup()    
+texts <- vertices_df$span_text %>% 
+  str_remove_all("(\\*|#|\\[(\\d|\\.|\\^)+\\]|\\{[^}]+\\}|[\\\\])")  
+  words <-  purrr::map_vec(texts, ~ tokenizers::tokenize_words(.x)) %>% 
+    map_int(length)
+  sentences <-  purrr::map_vec(texts, ~ tokenizers::tokenize_sentences(.x)) %>% 
+    map_int(length)
+  
+  vertices_df %<>% bind_cols("word_count" = words, "sent_count" = sentences)
+write_rds(vertices_df, "kuky_data/vertices_df.rds")
+write_tsv(vertices_df, "kuky_data/vertices_df.tsv")
 ```
 
 
+## Edges
+Here I will de-duplicate links that only swap directions. 
+
+```{r}
+edges_df <- mydata %>% 
+  select(span_id, linked_span_id, link_type, owner) %>% 
+  rowwise() %>% 
+  mutate(minspan = min(sort(c(span_id, linked_span_id))),
+         maxspan = max(sort(c(span_id, linked_span_id))),
+         uid = str_c(minspan, maxspan, sep = "---")
+         ) %>% 
+  ungroup() %>% 
+  select(!c(minspan, maxspan)) %>% 
+  group_by(uid) %>% arrange(.by_group = TRUE) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(!c(uid))
+```
+ 
+Rows before de-duplication: `r nrow(mydata)`.
+
+Rows after de-duplication: `r nrow(edges_df)`. 
+
+## Creating the `igraph` object
+
+The vertex names visible in the graphs are going to be simply the span_ids because the vertices are so many that no 
 
 

@@ -1,0 +1,53 @@
+# Network Analysis
+
+In the previous chapter, I prepared a table of edges for the entire ArgM data. In this chapter, I am going to create the input files for a network graph: a table of nodes and a table of edges. 
+I will load these into an [`igraph`](https://r.igraph.org/index.html) object and add network characteristics to the nodes to describe their connectedness. 
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(igraph, warn.conflicts = FALSE, quietly = TRUE)
+```
+
+ 
+```{r}
+
+mydata <- read_rds("kuky_data/kuky_argm_total_links.rds")
+colnames(mydata)
+```
+
+```{r vertices}
+vertices_sourcespans <- mydata %>% select(!starts_with("link")) 
+vertices_targetspans <- mydata %>% 
+  select(doc_id, doc_name, task_type, label = linked_label, 
+         start = linked_span_start, end = linked_span_end, 
+         span_id = linked_span_id, type, owner, note, plainText, Readability, 
+         SyllogismBased, DocumentVersion, ParentDocumentID, LegalActType, 
+         Objectivity, Bindingness, AuthorType, RecipientType, 
+         RecipientIndividuation, Anonymized, span_text = linked_span_text)
+
+# Check if column names match
+if (!identical(colnames(vertices_sourcespans), colnames(vertices_targetspans))) {
+stop("Data frames of vertices of source spans and vertices of target spans must have identical column names!")
+}
+vertices_df <- bind_rows(vertices_sourcespans)  %>% relocate(span_id) %>% distinct()
+```
+
+
+```{r}
+argm_labels_df <-  argm %>% select(span_id, label) %>% group_by(span_id, label) %>% count()
+missing <- anti_join(argm_labels_df, vertices_df, by = "span_id")
+
+```
+
+
+```{r}
+all %>% filter(span_id %in% missing$span_id)
+```
+
+```{r}
+newdata %>% filter(span_id %in% missing$span_id) 
+```
+
+
+
+

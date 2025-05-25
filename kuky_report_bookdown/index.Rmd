@@ -30,3 +30,10 @@ knitr::write_bib(c(
 ```
 
 
+- 01_guide_to_data_files.Rmd
+
+- 02_data-preparation.Rmd
+
+- 03_network_processing.Rmd
+
+- 04_network_analysis.Rmd

@@ -55,16 +55,20 @@ annots <- kuky[[3]] %>%
   # df had to be transformed 
   bind_rows()
 # df still considers each column a list
+annots %<>% distinct()
+write_rds(annots, "kuky_data/ArgM_spans_nested_links.rds")
 annots %<>% 
   mutate(across(c("doc_id", "doc_name", 
                   "task_type", "label", "start", "end", 
-                  "span_id", "type", "owner"), ~ unlist(.x))) %>% 
+                  "span_id", "type", "owner"), ~ unlist(.x))) 
+#%>% 
   # columns unlisted to vectors, except "linked_rules/conclusions", 
   # which remained lists of vectors. 
   # Mind to keep empty elements if you ever tidyr::unnest_longer them. 
-  left_join(docs, by = c("doc_id", "doc_name"))
+annots %<>%  left_join(docs, by = c("doc_id", "doc_name"))
 # doc metadata and document texts added
 annots %<>% mutate(span_text = str_sub(plainText, start=start, end=end))
+
 # added span texts by extraction from the documents using the offsets.
 saveRDS(annots, file = "kuky_data/argumentativeSpanTextsMetadata.rds")
 write_tsv(annots, file = "kuky_data/argumentativeSpanTextsMetadata.tsv")
@@ -123,6 +127,8 @@ duplargm <- argm %>% count(span_id, sort = TRUE) # deduplicated span_IDs
 # going to produce five rows in this table. So the number of rows in this table is the total number of annotated ArgM. 
 # argm %>% filter(span_id == duplargm$span_id[1])
 # store argm annotation for further processing
+write_rds(duplargm, "kuky_data/frequency_list_of_argmspans.rds")
+write_rds(argm, "kuky_data/argm.rds")
 ```
 
 ```{r}
@@ -141,8 +147,8 @@ argm_labels[c(1, 2, 6)] # I need these to remain correctly encoded
 ```{r}
 long_argm <- argm %>% 
   pivot_longer(cols = starts_with("linked"), 
-               names_to ="link_type", 
-               values_to= "linked_span_id"
+               names_to = "link_type", 
+               values_to = "linked_span_id"
               ) %>% 
   mutate(linked_label = case_when(
     link_type == "linked_rules" ~ argm_labels[6], 

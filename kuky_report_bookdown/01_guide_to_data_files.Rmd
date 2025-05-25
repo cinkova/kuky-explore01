@@ -4,6 +4,12 @@ I will list the files in the order of coming into existence.
 
 -   `argumentative.json`: from KUKY 1.0 on Lindat
 
+- `ArgM_spans_nested_links.rds`: conversion to a data frame. All spans, but links are nested lists in columns. 
+
+- `argm.rds`: all spans from json, uncleaned but ArgM only. 
+
+- `kuky_data/frequency_list_of_argmspans.rds`: a data frame of all spans from `argm.rds`, each span-relation on a separate column (unnested lists of links). 
+
 -   `argumentativeSpanTextsMetadata.rds/.tsv`: produced by Chapter \@ref(chapter:first-preprocessing)
     
   - added span text derived from the offsets in the annotation and document metadata to each span. No links yet (at least not in an immediately usable form).
@@ -23,4 +29,5 @@ I will list the files in the order of coming into existence.
  - removed rows representing some spans as unlinked when they got linked during the processing. This applies virtually only to Conclusions. 
  
  - At this point, I can generate the two tables of nodes and edges needed for a network graph in the `igraph` framework. I will compute diverse features of the spans and export the graph again to tibbles. By this, I am going to gain some machine learning features that could model how spans are rhetorically linked together. 
- 
+
+

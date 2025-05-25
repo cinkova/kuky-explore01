@@ -1,11 +1,31 @@
 # Network preprocessing {#chapter:network-preprocessing}
 I have created one full table of annotated ArgM spans (table `argumentativeSpanTextsMetadata` as `.rds` or `.tsv` ) and a table of spans with explicit links (drawn by annotators), which I enhanced with automatic links between Rules and Conclusions `kuky_argm_with_all_links_restored` (`.rds` or `.tsv`).
-I want to use this table in the future to generate a list of nodes and a list of edges in a network graph. 
-At this point, I will not care about the graph orientation. This means that I will not assume that the columns describing spans to the left (henceforth *source spans*) cover all spans listed in `argumentativeSpanTextsMetadata` and accept that a span can only occur to the right (as a *target span*).
-I will also neglect duplicate relations.
-Some source spans are that occur on one row as not having a link as well as on other row(s) due to my reconstruction of implicit links. At this point I will not clean the data, but, instead, I will directly create the nodes and edges tables. Duplicities of nodes are going to disappear automatically. 
 
-Regarding duplicate edges (different directions), I believe that it is easier to do this with `igraph` and then export the igraph objects back to data frames.  
+In this chapter, I will insert relations between Conclusions, based on shared Narratives. This will approximate the hierarchy of conclusions (partial conclusions supporting more general ones). 
+The output is going to be a table of all ArgM spans and their relations, the explicit ones added by annotators as well as the implicit ones that I restore in this and the previous chapter. 
+NB: the ultimate goal of this exercise is network analysis. The table resulting from this chapter is meant to be a base for creating a list of nodes and a list of edges in a network graph. 
+
+### The logic of the data 
+
+The table contains columns describing a *source span* and a *target span*. The target span is empty, when the source span has no relations. Each source as well as each target span is described by several columns: 
+
+- `span_id`(`linked_span_id`) 
+
+- `label` (`linked_label`)
+
+- `span_text` (`linked_span_text`)
+
+- `span_start` (`linked_span_start`)
+
+- `span_end` (`linked_span_end`)
+
+- `link_type` (no corresponding column for target spans)
+
+
+
+When a span is the target of one or more other spans but never occurs as a source, it does not occur in the left part of the table that describes the sources. To obtain a complete list of spans, you have to combine the source and target ids and de-duplicate, or load the `argumentativeSpanTextsMetadata` file (`.rds` or `.tsv`).
+
+This table may still contain some duplicate relations (with source and target swapped), although I did my best to clean them away. Any remaining duplicate relations will be easy to detect in `igraph` in the next chapter. I will then export the `igraph` objects back to data frames, and these are going to be a much more reliable data enhanced with network information.   
 
 ```{r}
 library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
@@ -107,7 +127,6 @@ joined_conclusions %<>%
   left_join(left_newdata, by = c("doc_id", "task_type", "label", "start", "end", 
                             "span_id", "span_text", "owner"), 
             relationship = "many-to-many") %>% 
-  #relocate(all_of(colnames_intersect) ) %>%
   relocate(all_of(newdatacols))
 joined_conclusions %<>% mutate(link_type = "linked_conclusions") 
 ```
@@ -146,39 +165,44 @@ slice(all, c(1:3, 6203:6205, (6205 + 540):(6205 + 542)))
 
 ```
 
+Below I tried to de-duplicate rows that contained the same source and target just swapped, 
+but it seems to make me lose some data. I failed to identify the issue, as I found out by comparing a de-duplicated list of all span_ids (no matter whether target or source) to a de-duplicated list of span_ids in `argm.rds`, which is ArgM annotation span rows filtered from the converted json before interventions concerning links. 
+So I will abstain from de-duplication here because it apparently causes a loss of 392 Conclusions. 
 
-```{r}
+```{r include=FALSE}
 all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
+
 ```
 
 
-```{r}
+```{r include=FALSE}
 all_linked_sources <- all %>% filter(!is.na(linked_span_id))
 ```
 
-```{r}
+```{r include=FALSE}
 all_wrongly_unlinked <- semi_join(all_unlinked_sources, all_linked_sources, 
                                   by = "span_id"
                                   )
 ```
 
-```{r}
+```{r include=FALSE}
 #Sanity check, should return only Conclusion-Conclusion links
 filter(all_linked_sources, span_id %in% all_wrongly_unlinked$span_id ) %>%
   select(label, linked_label) %>% group_by(label, linked_label) %>% count()
 ```
 
-```{r message=FALSE}
-all %<>% anti_join(all_wrongly_unlinked) # removed rows that had no target but the same sources had a target on a different row. This table became by 314 rows shorter, which corresponds to the number of rows in all_wrongly_unlinked.  Joining by all columns, so it is practically like filtering by span_id and is.na( linked_span_id). 
+
+```{r message=FALSE, include=FALSE}
+###all %<>% anti_join(all_wrongly_unlinked) # removed rows that had no target but the same sources had a target on a different row. This table became by 314 rows shorter, which corresponds to the number of rows in all_wrongly_unlinked.  Joining by all columns, so it is practically like filtering by span_id and is.na( linked_span_id). 
 ```
 
-```{r message=FALSE}
+```{r message=FALSE, include=FALSE}
 all_wrongly_unlinked_targets <- semi_join(all_unlinked_sources, 
                                           joined_conclusions,
                                           by = c("span_id" = "linked_span_id")
                                           ) 
 #inspection result: all are unlinked conclusions, OK
-all %<>% anti_join(all_wrongly_unlinked_targets) # this removes 157 rows
+###all %<>% anti_join(all_wrongly_unlinked_targets) # this removes 157 rows
  # This is not all rows from all_wrongly_unlinked_targets, but this is probably
  # because some target ids occurred on several rows in the linked conclusions table
  # while they obviously occurred only once in the unlinked sources table. 
@@ -187,7 +211,7 @@ all %<>% anti_join(all_wrongly_unlinked_targets) # this removes 157 rows
 
 Trying to check for wrongly unlinked sources in general
 
-```{r}
+```{r include=FALSE}
 all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
 all_linked_sources <- all %>% filter(!is.na(linked_span_id))
 semi_join(all_linked_sources, all_unlinked_sources, 
@@ -197,7 +221,7 @@ semi_join(all_linked_sources, all_unlinked_sources,
 # Wrongly unlinked are conclusions that are referred to from Narratives and Leqal Questions. 
 ```
 
-```{r}
+```{r include=FALSE}
 # identify rows of these wrongly unlinked conclusions (linked from Narratives and LQ)
 semi_join(all_unlinked_sources, all_linked_sources, 
           by = c("span_id" = "linked_span_id")
@@ -206,27 +230,28 @@ semi_join(all_unlinked_sources, all_linked_sources,
 # therefore I observe again fewer rows in the unlinked spans table. 
 ```
 
-```{r}
+```{r include=FALSE}
 wrongly_unlinked_from_others <- semi_join(all_unlinked_sources, all_linked_sources, 
           by = c("span_id" = "linked_span_id")
           )
+### all <- anti_join(all, wrongly_unlinked_from_others)
 ```
 
 ```{r message=FALSE}
-all <- anti_join(all, wrongly_unlinked_from_others)
+
 all %>% group_by(label, linked_label) %>% count()
 ```
 
+
 At this point, I have a table of relations between spans, including spans without any relations. 
-I have done my best to deduplicate this table and to remove rows that presented a span as unlinked when they in fact had a link, which they obtained during my (re)construction of links which were implied by the explicit links and the logic of the annotation.
 
-This is not yet a real nodes or edges table!!! 
 
-A nodes table will be created from sources and targets combined, and the edges table will contain only rows from this table that are not `NA` in `linked_span_id`. 
+This resulting table is not yet a real nodes(vertices) or edges table for network analysis!!! 
 
-I will store this table. In the next section, I will use `igraph` to create a network and provide the spans with further info, such as degrees or cliques or communities and try and use these values as features in further modeling. 
+In the next section, I will use `igraph` to create a network and provide the spans with further info, such as degrees or cliques or communities and try and use these values as features in further modeling. 
 
 ```{r}
+# Saving the resulting table as files
 write_rds(all, "kuky_data/kuky_argm_total_links.rds")
 write_tsv(all, "kuky_data/kuky_argm_total_links.tsv")
 ```

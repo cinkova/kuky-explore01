@@ -87,7 +87,7 @@ Here I will de-duplicate links that only swap directions.
 
 ```{r}
 edges_df <- mydata %>% 
-  select(span_id, linked_span_id, link_type, owner) %>% 
+  select(span_id, linked_span_id, link_type, owner, doc_id) %>% 
   rowwise() %>% 
   mutate(minspan = min(sort(c(span_id, linked_span_id))),
          maxspan = max(sort(c(span_id, linked_span_id))),
@@ -105,8 +105,42 @@ Rows before de-duplication: `r nrow(mydata)`.
 
 Rows after de-duplication: `r nrow(edges_df)`. 
 
-## Creating the `igraph` object
+## Creating the `igraph` objects
 
-The vertex names visible in the graphs are going to be simply the span_ids because the vertices are so many that no 
+Each document-owner pair will be represented by its own graph. 
+Therefore I will work with a list of vertices and edges data frames. 
+
+```{r}
+docs_owners <- vertices_df %>% distinct(doc_id, owner) %>%
+  unite(col = "doc_owner", doc_id, owner, sep = "--", remove = FALSE) 
+listnames <- docs_owners %>% pull(doc_owner) 
+# this whole snippet provides names to the elements of the lists of vertices and edges. It encodes the doc_id and the owner id. 
+```
+
+```{r}
+doc_ids <- docs_owners$doc_id # vector of doc_ids
+owner_vec <- docs_owners$owner # vector of owner ids
+vertices_list <- doc_ids %>% 
+  purrr::map2(.y = owner_vec, 
+              .f = ~ filter(vertices_df, doc_id == .x, owner == .y))
+vertices_list %<>% purrr::set_names(listnames)
+# This created a list of vertices_dfs split by doc_id-owner combinations
+edges_list <- doc_ids %>%
+  purrr::map2(.y = owner_vec,
+              .f = ~ filter(edges_df, doc_id == .x, owner == .y))
+edges_list %<>% purrr::set_names(listnames) %>% 
+  purrr::map(~ filter(.x, !is.na(linked_span_id)))
+# This created a list of edges_dfs split by doc_id-owner combinations. 
+# Igraph does not accept edges with no targets, so I removed them.
+```
+
+
+```{r}
+igraphs <- purrr::map2(
+  .x = edges_list, 
+  .y = vertices_list,
+  ~ igraph::graph_from_data_frame(d = .x, vertices = .y, directed = FALSE))
+```
+
 
 

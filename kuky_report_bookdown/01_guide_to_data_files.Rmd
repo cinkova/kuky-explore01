@@ -4,7 +4,7 @@ I will list the files in the order of coming into existence.
 
 -   `argumentative.json`: from KUKY 1.0 on Lindat
 
-- `ArgM_spans_nested_links.rds`: conversion to a data frame. All spans, but links are nested lists in columns. 
+- `ArgM_spans_nested_links.rds`: conversion to a data frame. All spans, but links are nested lists in columns. An important concept here is `owner`: This is the annotator. Some documents have parallel annotation by several annotators (to check the inter-annotator agreement). I keep all annotations, but whenever documents are to be treated individually, I will treat each document-owner pair as a separate document. 
 
 - `argm.rds`: all spans from json, uncleaned but ArgM only. 
 
@@ -20,7 +20,7 @@ I will list the files in the order of coming into existence.
  
 - `kuky_argm_with_all_links_restored(.rds/.tsv)`: produced by Chapter \@ref(chapter:first-preprocessing)
 
- - integrated links from the annotation and automatically adding links between Conclusion and Rules when they shared a Narrative (as I planned it when I designed the annotation in Gloss to save annotators' effort). 
+ - integrated links in the ArgM annotation and automatically adding links between Conclusion and Rules when they shared a Narrative (as I planned it when I designed the annotation in Gloss to save annotators' effort). 
  
 - `kuky_argm_total_links.rds/.tsv`: produced by Chapter \@ref(chapter:network-preprocessing)
 
@@ -28,8 +28,18 @@ I will list the files in the order of coming into existence.
  
  - I wanted to remove rows representing some spans as unlinked when they got linked during the processing, but it caused a partial data loss. I was not able to trace the problem, so I did not de-duplicate the future edges.
  
-- `vertices_df`: created in Chapter \ref@(chapter:network-analysis). Here I removed some columns irrelevant as machine-learning features. On the other hand, I added a few features concerning the lengths and positions of the span texts, including tokenization and sentence chunking. 
+- `argm_vertices_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). Here I removed some columns irrelevant as machine-learning features. On the other hand, I added a few features concerning the lengths and positions of the span texts, including tokenization and sentence chunking. ArgM annotation only. 
 
-- `edges_df`: created in Chapter \ref@(chapter:network-analysis). I de-duplicated the edges between vertices that just swapped order. 
+- `argm_edges_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). I de-duplicated the edges between vertices that just swapped order. ArgM annotation only. 
  
- 
+- `vertices_list.rds`,  `edges_list.rds`: created in Chapter \ref@(chapter:network-analysis). Edges and vertices as data frames ready to go into `igraph`. Each document is going to have its own `igraph` object defined by a pair of vertices and edges data frames. For this, I have created a list of vertices data frames and a list of edges data frames. Both lists are named with identical names that encode the document and the annotation owner. (Mind that some documents have multiple annotation and I am still keeping all options available.) 
+
+- `igraphs.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs. 
+
+- `igraphs_sorted.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). 
+
+- `stoplight_vertices_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). A data frame of vertices of the stoplight annotation. 
+
+
+
+

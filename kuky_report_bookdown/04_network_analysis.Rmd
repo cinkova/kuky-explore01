@@ -197,10 +197,11 @@ by_overlaps <- dplyr::join_by(doc_id,
 stoplight_edges_df <- stoplight_vertices_df %>%
   full_join(vertices_df, by = by_overlaps, keep = TRUE) %>% 
   mutate(link_type = "Spotlight_ArgM") %>%
-  unite(col = "docname_owner", doc_name.x, owner.x) %>%
+  unite(col = "docname_owner", doc_name.x, owner.x,remove = FALSE ) %>%
   select(c(span_id = span_id.x,
            linked_span_id = span_id.y, 
            link_type,
+           owner = owner.x,
            docname_owner,
            doc_id = doc_id.x
            ))
@@ -232,7 +233,7 @@ Each document-owner pair will be represented by its own graph.
 Therefore I will work with a list of vertices and edges data frames. 
 
 ```{r}
-docs_owners <- vertices_df %>% distinct(doc_id, owner) %>%
+docs_owners <- all_vertices_df %>% distinct(doc_id, owner) %>%
   unite(col = "doc_owner", doc_id, owner, sep = "--", remove = FALSE) 
 listnames <- docs_owners %>% pull(doc_owner) 
 # this whole snippet provides names to the elements of the lists of vertices and edges. It encodes the doc_id and the owner id. 
@@ -243,12 +244,12 @@ doc_ids <- docs_owners$doc_id # vector of doc_ids
 owner_vec <- docs_owners$owner # vector of owner ids
 vertices_list <- doc_ids %>% 
   purrr::map2(.y = owner_vec, 
-              .f = ~ filter(vertices_df, doc_id == .x, owner == .y))
+              .f = ~ filter(all_vertices_df, doc_id == .x, owner == .y))
 vertices_list %<>% purrr::set_names(listnames)
 # This created a list of vertices_dfs split by doc_id-owner combinations
 edges_list <- doc_ids %>%
   purrr::map2(.y = owner_vec,
-              .f = ~ filter(edges_df, doc_id == .x, owner == .y))
+              .f = ~ filter(all_edges_df, doc_id == .x, owner == .y))
 edges_list %<>% purrr::set_names(listnames) %>% 
   purrr::map(~ filter(.x, !is.na(linked_span_id)))
 # This created a list of edges_dfs split by doc_id-owner combinations. 
@@ -287,22 +288,22 @@ This will do something, but the result is going to be incorrect!!!!
 `perm` says: "My first element is now the one that used to rank 19th. My second element is now the one that used to rank 37th." and so on. But what `permute` needs to hear is: "The original first element belongs on rank 9. The original second element belongs on rank 14". And so on. It is called inverse permutation. And this is how it can be implemented: 
 
 
-```{r }
+```{r eval=FALSE}
 
-# Original order of vertices by 'start'
-start_vals <- V(text_graph)$start
-
-# Get the order of vertex indices by 'start'
-sorted_indices <- order(start_vals)
-
-# Invert the permutation: new[i] = which(sorted_indices == i)
-perm <- match(seq_along(sorted_indices), sorted_indices) # this is the trick!!!
-
-# Apply the permutation
-text_graph_sorted <- permute(text_graph, perm)
-
-# Check the result
-V(text_graph_sorted)$start
+# # Original order of vertices by 'start'
+# start_vals <- V(text_graph)$start
+# 
+# # Get the order of vertex indices by 'start'
+# sorted_indices <- order(start_vals)
+# 
+# # Invert the permutation: new[i] = which(sorted_indices == i)
+# perm <- match(seq_along(sorted_indices), sorted_indices) # this is the trick!!!
+# 
+# # Apply the permutation
+# text_graph_sorted <- permute(text_graph, perm)
+# 
+# # Check the result
+# V(text_graph_sorted)$start
 
 
 ```

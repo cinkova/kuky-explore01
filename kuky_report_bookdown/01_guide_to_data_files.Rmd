@@ -31,14 +31,38 @@ I will list the files in the order of coming into existence.
 - `argm_vertices_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). Here I removed some columns irrelevant as machine-learning features. On the other hand, I added a few features concerning the lengths and positions of the span texts, including tokenization and sentence chunking. ArgM annotation only. 
 
 - `argm_edges_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). I de-duplicated the edges between vertices that just swapped order. ArgM annotation only. 
+
+`argm_vertices_stoplight_enriched_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). I added three columns: `Relevant`, `Superfluous`, and `Incomprehensible`. These are Stoplight labels. The values inside these columns is the proportion of the given ArgM span that pertains to this label. By this, I incorporated the Stoplight annotation directly into ArgM. Most ArgM spans are linked to only one Stoplight label, so the proportion is 1.00. 
  
-- `vertices_list.rds`,  `edges_list.rds`: created in Chapter \ref@(chapter:network-analysis). Edges and vertices as data frames ready to go into `igraph`. Each document is going to have its own `igraph` object defined by a pair of vertices and edges data frames. For this, I have created a list of vertices data frames and a list of edges data frames. Both lists are named with identical names that encode the document and the annotation owner. (Mind that some documents have multiple annotation and I am still keeping all options available.) 
+- `vertices_list.rds`,  `edges_list.rds`: created in Chapter \ref@(chapter:network-analysis). Edges and vertices as data frames ready to go into `igraph`. Each document is going to have its own `igraph` object defined by a pair of vertices and edges data frames. For this, I have created a list of vertices data frames and a list of edges data frames. Both lists are named with identical names that encode the document and the annotation owner. (Mind that some documents have multiple annotation and I am still keeping all options available.) I used the `argm_vertices_stoplight_enriched_df` vertices and `argm_edges` to created these objects. s
 
 - `igraphs.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs. 
 
 - `igraphs_sorted.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). 
 
 - `stoplight_vertices_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). A data frame of vertices of the stoplight annotation. 
+
+- `stoplight_edges_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). A data frame of edges between the stoplight annotation spans and ArgM annotation spans. 
+
+- `igraphs.rds`
+
+- `igraphs_sorted.rds`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

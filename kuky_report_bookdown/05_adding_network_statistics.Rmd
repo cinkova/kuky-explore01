@@ -1,0 +1,127 @@
+# Adding Network-related statistics to the data
+
+## About the input file
+In this chapter, I will work with the `igraph` objects of document-owner pairs (some documents were annotated by several annotators in parallel and I treat each as a separate document; hence most documents are uniquely identified with their `doc_id`, but to uniquely identify a document with multiple annotation one needs the  `doc_id` and `owner` combination).
+
+The `igraph` objects are all stored in a list stored in the RDS files `igraphs` and `igraphs_sorted.rds`. They differ in that the latter has vertices sorted according to their character offset start. This could allow for placing the vertices on a grid in a linear order similar to the span sequence in the linear text. 
+
+The network graphs are non-directed and combine the stoplight and ArgM annotations. 
+
+## Design issues
+
+The `igraph` library enables me to compute statistics of individual vertices, edges, and whole graphs. I will list the ones I decided to add and say:
+
+1.  to which level of graph they relate (vertex, edge, the entire graph),
+2.  what they compute,
+3.  and how they could be useful as modeling features.
+
+I am not sure yet whether I will compute everything on the whole graph or on some sub-graphs. I cannot say yet how and when I will have to consider that the logic of the annotation imposes some restrictions on the connectedness of the nodes. The most principal connectedness limitations are: 
+- ArgM-to-ArgM edges can only occur between vertices with some combinations of labels: 
+  - Law-Narrative
+  - Conclusion-Narrative
+  - Conclusion-Conclusion
+  - Law-Conclusion
+  - Legal Issue - Conclusion
+  
+- each ArgM vertex is (or at least should be) connected to at least one stoplight vertex. 
+
+
+```{r}
+library(tidyverse)
+library(igraph)
+igraphs <- read_rds("kuky_data/igraphs_sorted.rds")
+
+```
+
+I will create a data frame `graphs_stats_df` to store stats that relate to the entire documents (graphs).
+
+## Edge Density
+The proportion of present edges from all possible edges in the network. 
+
+```{r}
+gr_density <- purrr::map_vec(igraphs, ~ edge_density(.x)) 
+graph_id <- names(gr_density)
+graphs_stats_df <- bind_cols("graph_id" = graph_id, "graph_density" = gr_density)
+```
+
+## Transitivity
+
+```{r}
+gr_transitivity_global <-  purrr::map_vec(igraphs, 
+                                          ~ transitivity(.x, 
+                                                         type = "global"))
+graphs_stats_df %<>% bind_cols(
+  "graph_transitivity_global" = gr_transitivity_global)
+  
+```
+
+
+## Vertex statistics
+
+```{r}
+
+degrees_all <- purrr::map(igraphs, ~ degree(.x, mode = "all"))
+
+transitivity_local <- purrr::map(igraphs, ~ transitivity(.x, type = "local"))
+
+normalized_closeness <- purrr::map(igraphs, ~ closeness(.x, mode = "all", 
+                                                        normalized = TRUE))
+
+```
+
+
+
+
+```{r}
+V(igraphs[[1]])$degree <- degrees_all[[1]]
+```
+
+
+```{r}
+## tohle nemazat, to funguje
+igraphs %<>% 
+  purrr::map2(.y = degrees_all, ~ {V(.x)$degree <- .y
+  return(.x)
+  })
+```
+
+```{r}
+g <- igraphs[[2]]
+library(igraph)
+library(purrr)
+
+# Named list of attributes
+attr_list <- list(
+  norm_degree = degree(g, loops = FALSE, normalized = TRUE),
+  abs_degree = degree(g, loops = FALSE, normalized = FALSE),
+  norm_closeness = closeness(g, normalized = TRUE),
+  norm_betweenness = betweenness(g, normalized = TRUE),
+  abs_betweenness = betweenness(g, normalized = FALSE),
+  transitivity_local = transitivity(g, type = "local", isolates = "NaN"),
+  transitivity_global = transitivity(g, type = "global", isolates = "NaN")
+  
+)
+
+# Use purrr::iwalk to assign each attribute
+iwalk(attr_list, function(values, name) {
+  g <<- set_vertex_attr(g, name = name, value = values)
+})
+g
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

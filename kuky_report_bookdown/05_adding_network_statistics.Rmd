@@ -27,15 +27,18 @@ I am not sure yet whether I will compute everything on the whole graph or on som
 
 
 ```{r}
-library(tidyverse)
-library(igraph)
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(igraph, warn.conflicts = FALSE, quietly = TRUE)
+library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
+
 igraphs <- read_rds("kuky_data/igraphs_sorted.rds")
 
 ```
 
-I will create a data frame `graphs_stats_df` to store stats that relate to the entire documents (graphs).
+I will create a data frame `graphs_stats_df` to store stats that relate to the entire documents (graphs) or their subgraphs. 
+With 
 
-## Edge Density
+## Edge Density - entire graph
 The proportion of present edges from all possible edges in the network. 
 
 ```{r}
@@ -43,6 +46,46 @@ gr_density <- purrr::map_vec(igraphs, ~ edge_density(.x))
 graph_id <- names(gr_density)
 graphs_stats_df <- bind_cols("graph_id" = graph_id, "graph_density" = gr_density)
 ```
+
+
+## Edge Density - subgraph of Law, Narrative, Legal Issue, and Conclusion
+I will call the selection of Law, Narrative, Conclusion, and Legal Issue *argum*.
+
+```{r}
+testgraph <- igraphs[[1]]
+vertex_attr(testgraph) %>% names()
+
+```
+```{r}
+testgraph %>% vertex_attr(name = "label") %>% unique()
+```
+
+
+```{r}
+ argum <- V(testgraph)[label %in% c("Law", 
+                                    "Narrative", 
+                                    "Conclusion",
+                                    "LegalIssue")]
+conclusions <- V(testgraph)[label == "Conclusion"]
+conclusions_legissues <- V(testgraph)[label %in% c("Conclusion", "LegalIssue")]
+
+subgraph(testgraph, vids = conclusions) %>% 
+  eccentricity()
+  
+``` 
+
+```{r}
+subgraph(testgraph, vids = conclusions) %>% plot()
+```
+```{r}
+i <- 5
+str(igraphs[[i]])
+graph_attr_names(igraphs[[i]])
+subgraph(igraphs[[i]], vids = V(igraphs[[i]])[label == "Conclusion"]) %>% 
+  plot(main = names(igraphs[[i]]))
+
+```
+
 
 ## Transitivity
 

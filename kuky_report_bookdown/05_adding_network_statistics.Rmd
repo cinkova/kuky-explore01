@@ -38,9 +38,10 @@ igraphs <- read_rds("kuky_data/igraphs_sorted.rds")
 I will add the `igraph`-computed statistics directly to the `igraph object` and eventually export all these variables as data frames of vertices and edges. 
 
 
-I will compute many statistics on three sets of vertices: the complete graph, the subset of vertices that can have edges (henceforth `argum` subset), and just vertices labeled as Conclusion (henceforth `conclusions` subset). I will use these names throughout the analysis. 
+I will compute many statistics on three sets of vertices: the complete set of vertices, the subset of vertices that can have edges (henceforth `argum` subset), and the subset of just vertices labeled as Conclusion (henceforth `conclusions` subset). I will use these names throughout the analysis. 
 I will create functions to do this subsetting because I will need to make these selections with a purrr function on a list of `igraph` objects. 
-I have introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@{section:argm_vertices_stoplight_enriched}. 
+I have introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@{section:argm_vertices_stoplight_enriched}. I will compute the statistics on argum and conclusions with different levels of the relevance threshold. In this initial feature extraction, I will use the threshold 0 (relevance neglected) and 0.9 (entirely or almost entirely relevant spans).
+
 
 
 ```{r}
@@ -56,8 +57,62 @@ select_conclusions_vertices <- function(graph, relevance_threshold = 0){
 ```
 
 
+## Computation of Vertex attributes
+```{r}
 
-## Graph attributes
+make_vertex_attr_list <- function(graph){
+  list(
+    ### Degree ###
+    # Normalized for comparison between graphs. Hence I need separate 
+    # scenarios for the entire graph, argum with and without relevance threshold, 
+    # and conclusions with and without relevance threshold. 
+   # vertex_all_degree = degree(graph, loops = FALSE, normalized = TRUE)#,
+    vertex_argum_degree_0 = degree(
+      subgraph(graph, vids = select_argum_vertices(graph)), loops = FALSE, normalized = TRUE )
+    
+
+  # abs_degree = degree(g, loops = FALSE, normalized = FALSE),
+  # norm_closeness = closeness(g, normalized = TRUE),
+  # norm_betweenness = betweenness(g, normalized = TRUE),
+  # abs_betweenness = betweenness(g, normalized = FALSE),
+  # transitivity_local = transitivity(g, type = "local", isolates = "NaN"),
+  
+    #nezapomen na community detection modularity.igraph v Help R a konverzace s MS Copilot
+    
+  )
+}
+
+add_vertex_attr_list <- function(graph) {
+  attr_list <- make_vertex_attr_list(graph)
+
+  # Use purrr::iwalk to iterate over the list and set each attribute
+  iwalk(attr_list, function(value, name) {
+    graph[select_argum_vertices(graph)] <<- set_vertex_attr(graph, name = name, value = value)
+  })
+  
+  return(graph)
+}
+
+
+test <- igraphs[1:2] # a simple igraph object not in a list
+test[[1]] %>% make_vertex_attr_list() %>% str()
+test <- map(test, ~ add_vertex_attr_list(.x))
+
+test[select_argum_vertices(test)] %>% map( ~ add_vertex_attr_list(.x))
+
+
+map(test, ~ vertex_attr_names(.x))
+
+```
+
+
+
+## Computation of Edge attributes
+
+
+
+
+## Computation of Graph attributes
 
 
 ```{r}
@@ -187,7 +242,7 @@ make_graph_attr_list <- function(graph) {
     directed = FALSE, unconnected = TRUE, weights = NA
   ) ,
   ### Eigenvector centralization  ###
-  # no weights argument in this function
+  # no weights argument available in this function. I have no idea whether it's weighted or not.
   graph_eigenvector_centralization = 
     centr_eigen(graph, directed = FALSE, 
                 normalized = TRUE, scale = TRUE)$centralization,
@@ -233,10 +288,7 @@ make_graph_attr_list <- function(graph) {
               vids = select_conclusions_vertices(graph, 
                                                  relevance_threshold = 0.9)), 
                 directed = FALSE, normalized = TRUE, 
-      scale = TRUE)$theoretical_max,
-  
-  
-  
+      scale = TRUE)$theoretical_max#,
   
   # end of list follows with closing parenthesis  
   ) # end of list  
@@ -244,20 +296,6 @@ make_graph_attr_list <- function(graph) {
   
    
   
-   #  graph_eigenvector_theoretical_max = centr_eigen(
-   #      graph, scale = TRUE, directed = FALSE, 
-   #      normalized = TRUE)$theoretical_max,
-   #      #below add graph_level attributes computed on the argum subset
-   # 
-   
-   #  
-   #  argum_eigenvector_centralization = 
-   #    centr_eigen(
-   #    subgraph(graph, vids = select_argum_vertices(graph)), directed = FALSE, scale = TRUE, 
-   #    normalized = TRUE)$centralization, 
-   #  argum_eigenvector_centralization = centr_eigen(
-   #    subgraph(graph, vids = select_argum_vertices(graph)), directed = FALSE, scale = TRUE, 
-   #    normalized = TRUE)$theoretical_max)
 }
 
 # Function to add graph-level attributes to the graph
@@ -289,27 +327,19 @@ igraphs %<>%
 ```
 
 ```{r}
-g <- igraphs[[2]]
-library(igraph)
-library(purrr)
+
 
 # Named list of attributes
 attr_list <- list(
-  norm_degree = degree(g, loops = FALSE, normalized = TRUE),
-  abs_degree = degree(g, loops = FALSE, normalized = FALSE),
-  norm_closeness = closeness(g, normalized = TRUE),
-  norm_betweenness = betweenness(g, normalized = TRUE),
-  abs_betweenness = betweenness(g, normalized = FALSE),
-  transitivity_local = transitivity(g, type = "local", isolates = "NaN"),
   
   
 )
 
 # Use purrr::iwalk to assign each attribute
-iwalk(attr_list, function(values, name) {
-  g <<- set_vertex_attr(g, name = name, value = values)
-})
-g
+#iwalk(attr_list, function(values, name) {
+#  g <<- set_vertex_attr(g, name = name, value = values)
+#})
+#g
 ```
 
 ```{r}

@@ -1,11 +1,11 @@
 # Adding Network-related statistics to the data
 
 ## About the input file
-In this chapter, I will work with the `igraph` objects of document-owner pairs (some documents were annotated by several annotators in parallel and I treat each as a separate document; hence most documents are uniquely identified with their `doc_id`, but to uniquely identify a document with multiple annotation one needs the  `doc_id` and `owner` combination).
+In this chapter, I will work with the `igraph` objects of document-owner pairs (some documents were annotated by several annotators in parallel and I treat each as a separate document; hence most documents are uniquely identified with their `doc_id`, but to uniquely identify a document with multiple annotation one needs the  `doc_id` and `doc_owner` combination. I have added a special column called `metadoc_docname_owner`, which is a concatenation of both in the vertices table. The same column was called `doc_owner` in the edges table and remains among the edge attributes).
 
 The `igraph` objects are all stored in a list stored in the RDS files `igraphs` and `igraphs_sorted.rds`. They differ in that the latter has vertices sorted according to their character offset start. This could allow for placing the vertices on a grid in a linear order similar to the span sequence in the linear text. 
 
-The network graphs are non-directed and combine the stoplight and ArgM annotations. 
+The network graphs are non-directed and combine the Stoplight and ArgM annotations. 
 
 ## Design issues
 
@@ -16,14 +16,14 @@ The `igraph` library enables me to compute statistics of individual vertices, ed
 3.  and how they could be useful as modeling features.
 
 I am not sure yet whether I will compute everything on the whole graph or on some sub-graphs. I cannot say yet how and when I will have to consider that the logic of the annotation imposes some restrictions on the connectedness of the nodes. The most principal connectedness limitations are: 
-- ArgM-to-ArgM edges can only occur between vertices with some combinations of labels: 
+- ArgM-to-ArgM edges can only occur between vertices with these combinations of labels: 
   - Law-Narrative
   - Conclusion-Narrative
   - Conclusion-Conclusion
   - Law-Conclusion
-  - Legal Issue - Conclusion
+  - LegalIssue-Conclusion.
   
-- each ArgM vertex is (or at least should be) connected to at least one stoplight vertex. 
+- Each ArgM vertex is (or at least should be) connected to at least one Stoplight vertex. 
 
 
 ```{r}
@@ -35,89 +35,249 @@ igraphs <- read_rds("kuky_data/igraphs_sorted.rds")
 
 ```
 
-I will create a data frame `graphs_stats_df` to store stats that relate to the entire documents (graphs) or their subgraphs. 
-With 
+I will add the `igraph`-computed statistics directly to the `igraph object` and eventually export all these variables as data frames of vertices and edges. 
 
-## Edge Density - entire graph
-The proportion of present edges from all possible edges in the network. 
+
+I will compute many statistics on three sets of vertices: the complete graph, the subset of vertices that can have edges (henceforth `argum` subset), and just vertices labeled as Conclusion (henceforth `conclusions` subset). I will use these names throughout the analysis. 
+I will create functions to do this subsetting because I will need to make these selections with a purrr function on a list of `igraph` objects. 
+I have introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@{section:argm_vertices_stoplight_enriched}. 
+
 
 ```{r}
-gr_density <- purrr::map_vec(igraphs, ~ edge_density(.x)) 
-graph_id <- names(gr_density)
-graphs_stats_df <- bind_cols("graph_id" = graph_id, "graph_density" = gr_density)
+select_argum_vertices <- function(graph, relevance_threshold = 0) {
+  V(graph)[span_label %in% c("Law", "Narrative","Conclusion", 
+                                    "LegalIssue") & span_Relevant >= relevance_threshold]
+}
+
+select_conclusions_vertices <- function(graph, relevance_threshold = 0){
+  V(graph)[span_label == "Conclusion" & span_Relevant >= relevance_threshold]
+}
+   
 ```
 
 
-## Edge Density - subgraph of Law, Narrative, Legal Issue, and Conclusion
-I will call the selection of Law, Narrative, Conclusion, and Legal Issue *argum*.
 
-```{r}
-testgraph <- igraphs[[1]]
-vertex_attr(testgraph) %>% names()
-
-```
-```{r}
-testgraph %>% vertex_attr(name = "label") %>% unique()
-```
+## Graph attributes
 
 
 ```{r}
- argum <- V(testgraph)[label %in% c("Law", 
-                                    "Narrative", 
-                                    "Conclusion",
-                                    "LegalIssue")]
-conclusions <- V(testgraph)[label == "Conclusion"]
-conclusions_legissues <- V(testgraph)[label %in% c("Conclusion", "LegalIssue")]
+# Named list of vertex attributes
+# test <- igraphs[1:2]
+# 
+# make_vertex_attr_list <- function(graph) {
+# attr_list <- list(
+#   norm_degree = degree(graph, loops = FALSE, normalized = TRUE),
+#   abs_degree = degree(graph, loops = FALSE, normalized = FALSE),
+#   norm_closeness = closeness(graph, normalized = TRUE),
+#   norm_betweenness = betweenness(graph, normalized = TRUE),
+#   abs_betweenness = betweenness(graph, normalized = FALSE),
+#   transitivity_local = transitivity(graph, type = "local", isolates = "NaN"),
+#   transitivity_global = transitivity(graph, type = "global", isolates = "NaN"))
+# return(attr_list)
+# }
 
-subgraph(testgraph, vids = conclusions) %>% 
-  eccentricity()
+
+
+# Function to create a list of graph-level attributes
+make_graph_attr_list <- function(graph) {
+  list(
+    ### Edge density ###
+    graph_edge_density = edge_density(
+      graph, 
+      loops = FALSE), 
+    argum_edge_density_0 = edge_density(
+       subgraph(graph, vids = select_argum_vertices(graph)), 
+       loops = FALSE), # this considers all argum spans
+    argum_edge_density_09 = 
+      edge_density( #This considers only argum spans whose 
+      # overlap with Stoplight-Relevant is at least 90%. 
+      subgraph(graph, vids = select_argum_vertices(graph, 
+                                                   relevance_threshold = 0.9))),
+      conclusions_edge_density_0 = edge_density(# this considers all Conclusions
+      subgraph(graph, vids = select_conclusions_vertices(graph)),
+      loops = FALSE),
+     conclusions_edge_density_09 = edge_density(# this considers only 
+       # Conclusions whose overlap with Stoplight-Relevant is at least 90%.
+      subgraph(graph, vids = select_conclusions_vertices(graph, 
+      relevance_threshold = 0.9)),
+      loops = FALSE),
+    ### Edge count ###
+    graph_edge_count = ecount(graph), # counts all edges in graph
+    argum_edge_count_0 = ecount(  # this considers all argum spans
+                           subgraph(graph, vids = select_argum_vertices(graph))),
+    argum_edge_count_09 = ecount(subgraph(graph, 
+                                            vids = select_conclusions_vertices(
+        graph, relevance_threshold = 0.9)) ), # this considers only argum spans 
+    #whose overlap with Stoplight-Relevant is at least 90%. 
+   conclusions_edge_count_0 = ecount(
+     subgraph(graph, vids = select_conclusions_vertices(graph))
+     # counts all Conclusions
+   ), 
+   conclusions_edge_count_09 = ecount(# only Conclusions 90+% relevant
+     subgraph(graph, 
+              vids = select_conclusions_vertices(graph, 
+                                                 relevance_threshold = 0.9))
+   ), 
+   ### Vertex count ###
+   graph_vertex_count = vcount(graph), # counts all vertices in the graph
+   argum_vertex_count_0 = vcount( # counts all argum vertices
+     subgraph(graph, vids = select_argum_vertices(graph))
+   ),
+   argum_vertex_count_09 = vcount( # counts only argum vertices 90+% relevant
+     subgraph(graph, 
+              vids = select_argum_vertices(graph, relevance_threshold = 0.9))
+     ), 
+   conclusions_vertex_count_0 = vcount( # counts all Conclusions)
+      subgraph(graph, vids = select_conclusions_vertices(graph))), 
+   conclusions_vertex_count_09 = vcount( # counts only Conclusions 90+% relevant
+     subgraph(graph, 
+              vids = select_conclusions_vertices(graph, 
+                                                 relevance_threshold = 0.9))),
+   ### Transitivity (global, weighted) ###
+   graph_transitivity_global = transitivity(graph, 
+                                            isolates = "zero", #returns 0 if no 
+                                            #triangles found in graph
+                                              type = "global",
+                                            weights = NULL 
+                                            # weights default, takes my weights
+                                            # attribute in the edges table.
+                                            ),
+   argum_transitivity_global_0 = transitivity(
+     subgraph(graph, vids = select_argum_vertices(graph)),
+     isolates = "zero", type = "global", weights = NULL
+   ), 
+   argum_transitivity_global_09 = transitivity(
+     subgraph(graph, vids = select_argum_vertices(graph, 
+                                                  relevance_threshold = 0.9)),
+     isolates = "zero", type = "global", weights = NULL
+   ), 
+    conclusions_transitivity_global_0 = transitivity(
+     subgraph(graph, vids = select_conclusions_vertices(graph)),
+     isolates = "zero", type = "global", weights = NULL
+   ), 
+   conclusions_transitivity_global_09 = transitivity(
+     subgraph(graph, vids = select_conclusions_vertices(graph, 
+                                                  relevance_threshold = 0.9)),
+     isolates = "zero", type = "global", weights = NULL
+   ),
+   ### Graph diameter, weighted ###
+  graph_diameter_weighted = diameter(graph, directed = FALSE, 
+                                       unconnected = TRUE), # returns the largest diameter  
+  argum_diameter_weighted_0 = diameter(
+    subgraph(graph, vids = select_argum_vertices(graph)), 
+    directed = FALSE, unconnected = TRUE
+  ) , 
+  argum_diameter_weighted_09 = diameter(
+    subgraph(graph, vids = select_argum_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+    directed = FALSE, unconnected = TRUE
+  ) , 
+  conclusions_diameter_weighted_0 = diameter(
+        subgraph(graph, vids = select_conclusions_vertices(graph)), 
+    directed = FALSE, unconnected = TRUE
+  ),
+  conclusions_diameter_weighted_09 = diameter(
+    subgraph(graph, vids = select_conclusions_vertices(
+      graph, relevance_threshold = 0.9)), 
+    directed = FALSE, unconnected = TRUE
+  ) ,
+  conclusions_diameter_unweighted_09 = diameter(
+    subgraph(graph, vids = select_conclusions_vertices(
+      graph, relevance_threshold = 0.9)), 
+    directed = FALSE, unconnected = TRUE, weights = NA
+  ) ,
+  ### Eigenvector centralization  ###
+  # no weights argument in this function
+  graph_eigenvector_centralization = 
+    centr_eigen(graph, directed = FALSE, 
+                normalized = TRUE, scale = TRUE)$centralization,
+  argum_eigenvector_centralization_0 = 
+    centr_eigen(subgraph(graph, vids = select_argum_vertices(graph)), 
+                directed = FALSE, normalized = TRUE, scale = TRUE)$centralization,
+  argum_eigenvector_centralization_09 = 
+    centr_eigen(subgraph(graph, 
+                        vids = select_argum_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = FALSE, normalized = TRUE, scale = TRUE)$centralization,
+  conclusions_eigenvector_centralization_0 = 
+    centr_eigen(subgraph(graph, vids = select_conclusions_vertices(graph)), 
+                directed = FALSE, normalized = TRUE, 
+                scale = TRUE)$centralization,
+  conclusions_eigenvector_centralization_09 = 
+    centr_eigen(
+      subgraph(graph, 
+              vids = select_conclusions_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = FALSE, normalized = TRUE, 
+      scale = TRUE)$centralization,
+  ### Theoretical max of eigenvector centralization
+  graph_eigenvector_theoretical_max = centr_eigen(
+        graph, scale = TRUE, directed = FALSE, 
+        normalized = TRUE)$theoretical_max,
   
-``` 
-
-```{r}
-subgraph(testgraph, vids = conclusions) %>% plot()
-```
-```{r}
-i <- 5
-str(igraphs[[i]])
-graph_attr_names(igraphs[[i]])
-subgraph(igraphs[[i]], vids = V(igraphs[[i]])[label == "Conclusion"]) %>% 
-  plot(main = names(igraphs[[i]]))
-
-```
-
-
-## Transitivity
-
-```{r}
-gr_transitivity_global <-  purrr::map_vec(igraphs, 
-                                          ~ transitivity(.x, 
-                                                         type = "global"))
-graphs_stats_df %<>% bind_cols(
-  "graph_transitivity_global" = gr_transitivity_global)
+  argum_eigenvector_theoretical_max_0 = 
+    centr_eigen(subgraph(graph, vids = select_argum_vertices(graph)), 
+                directed = FALSE, normalized = TRUE, scale = TRUE)$theoretical_max,
+  argum_eigenvector_theoretical_max_09 = 
+    centr_eigen(subgraph(graph, 
+                        vids = select_argum_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = FALSE, normalized = TRUE, scale = TRUE)$theoretical_max,
+  conclusions_eigenvector_theoretical_max_0 = 
+    centr_eigen(subgraph(graph, vids = select_conclusions_vertices(graph)), 
+                directed = FALSE, normalized = TRUE, 
+                scale = TRUE)$theoretical_max,
+  conclusions_eigenvector_theoretical_max_09 = 
+    centr_eigen(
+      subgraph(graph, 
+              vids = select_conclusions_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = FALSE, normalized = TRUE, 
+      scale = TRUE)$theoretical_max,
   
+  
+  
+  
+  # end of list follows with closing parenthesis  
+  ) # end of list  
+# 
+  
+   
+  
+   #  graph_eigenvector_theoretical_max = centr_eigen(
+   #      graph, scale = TRUE, directed = FALSE, 
+   #      normalized = TRUE)$theoretical_max,
+   #      #below add graph_level attributes computed on the argum subset
+   # 
+   
+   #  
+   #  argum_eigenvector_centralization = 
+   #    centr_eigen(
+   #    subgraph(graph, vids = select_argum_vertices(graph)), directed = FALSE, scale = TRUE, 
+   #    normalized = TRUE)$centralization, 
+   #  argum_eigenvector_centralization = centr_eigen(
+   #    subgraph(graph, vids = select_argum_vertices(graph)), directed = FALSE, scale = TRUE, 
+   #    normalized = TRUE)$theoretical_max)
+}
+
+# Function to add graph-level attributes to the graph
+add_graph_attr_list <- function(graph) {
+  attr_list <- make_graph_attr_list(graph)
+  
+  # Use purrr::iwalk to iterate over the list and set each attribute
+  iwalk(attr_list, function(value, name) {
+    graph <<- set_graph_attr(graph, name = name, value = value)
+  })
+  
+  return(graph)
+}
+
+
+test <- igraphs[1:2] # a simple igraph object not in a list
+test <- map(test, ~ add_graph_attr_list(.x))
+map(test, ~ graph_attr(.x))
 ```
 
-
-## Vertex statistics
-
-```{r}
-
-degrees_all <- purrr::map(igraphs, ~ degree(.x, mode = "all"))
-
-transitivity_local <- purrr::map(igraphs, ~ transitivity(.x, type = "local"))
-
-normalized_closeness <- purrr::map(igraphs, ~ closeness(.x, mode = "all", 
-                                                        normalized = TRUE))
-
-```
-
-
-
-
-```{r}
-V(igraphs[[1]])$degree <- degrees_all[[1]]
-```
 
 
 ```{r}
@@ -141,7 +301,7 @@ attr_list <- list(
   norm_betweenness = betweenness(g, normalized = TRUE),
   abs_betweenness = betweenness(g, normalized = FALSE),
   transitivity_local = transitivity(g, type = "local", isolates = "NaN"),
-  transitivity_global = transitivity(g, type = "global", isolates = "NaN")
+  
   
 )
 

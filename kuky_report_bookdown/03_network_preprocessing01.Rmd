@@ -140,7 +140,6 @@ dupl_linked <- joined_conclusions %>% distinct(linked_span_id) %>% pull()
 dupl_all <- c(dupl_spans, dupl_linked) %>% unique()
 length(dupl_all)
 # these are Conclusion span ids that are connected to other conclusions. 
-# Theoretically they 
 ```
 The number above means the number of unique Conclusion spans in the `joined_conclusions` table, no matter whether source or target. 
 
@@ -170,25 +169,25 @@ but it seems to make me lose some data. I failed to identify the issue, as I fou
 So I will abstain from de-duplication here because it apparently causes a loss of 392 Conclusions. 
 
 ```{r include=FALSE}
-all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
+#all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
 
 ```
 
 
 ```{r include=FALSE}
-all_linked_sources <- all %>% filter(!is.na(linked_span_id))
+#all_linked_sources <- all %>% filter(!is.na(linked_span_id))
 ```
 
 ```{r include=FALSE}
-all_wrongly_unlinked <- semi_join(all_unlinked_sources, all_linked_sources, 
+#all_wrongly_unlinked <- semi_join(all_unlinked_sources, all_linked_sources, 
                                   by = "span_id"
                                   )
 ```
 
 ```{r include=FALSE}
 #Sanity check, should return only Conclusion-Conclusion links
-filter(all_linked_sources, span_id %in% all_wrongly_unlinked$span_id ) %>%
-  select(label, linked_label) %>% group_by(label, linked_label) %>% count()
+#filter(all_linked_sources, span_id %in% all_wrongly_unlinked$span_id ) %>%
+#  select(label, linked_label) %>% group_by(label, linked_label) %>% count()
 ```
 
 
@@ -197,10 +196,10 @@ filter(all_linked_sources, span_id %in% all_wrongly_unlinked$span_id ) %>%
 ```
 
 ```{r message=FALSE, include=FALSE}
-all_wrongly_unlinked_targets <- semi_join(all_unlinked_sources, 
-                                          joined_conclusions,
-                                          by = c("span_id" = "linked_span_id")
-                                          ) 
+# all_wrongly_unlinked_targets <- semi_join(all_unlinked_sources, 
+#                                           joined_conclusions,
+#                                           by = c("span_id" = "linked_span_id")
+#                                           ) 
 #inspection result: all are unlinked conclusions, OK
 ###all %<>% anti_join(all_wrongly_unlinked_targets) # this removes 157 rows
  # This is not all rows from all_wrongly_unlinked_targets, but this is probably
@@ -212,28 +211,28 @@ all_wrongly_unlinked_targets <- semi_join(all_unlinked_sources,
 Trying to check for wrongly unlinked sources in general
 
 ```{r include=FALSE}
-all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
-all_linked_sources <- all %>% filter(!is.na(linked_span_id))
-semi_join(all_linked_sources, all_unlinked_sources, 
-                  by = c("linked_span_id" = "span_id")
-                  ) %>% 
-  group_by(label, linked_label) %>% count()
+# all_unlinked_sources <- all %>% filter(is.na(linked_span_id))
+# all_linked_sources <- all %>% filter(!is.na(linked_span_id))
+# semi_join(all_linked_sources, all_unlinked_sources, 
+#                   by = c("linked_span_id" = "span_id")
+#                   ) %>% 
+#   group_by(label, linked_label) %>% count()
 # Wrongly unlinked are conclusions that are referred to from Narratives and Leqal Questions. 
 ```
 
 ```{r include=FALSE}
 # identify rows of these wrongly unlinked conclusions (linked from Narratives and LQ)
-semi_join(all_unlinked_sources, all_linked_sources, 
-          by = c("span_id" = "linked_span_id")
-          ) %>% group_by(label, linked_label) %>% count()
+# semi_join(all_unlinked_sources, all_linked_sources, 
+#           by = c("span_id" = "linked_span_id")
+#           ) %>% group_by(label, linked_label) %>% count()
 # obviously, some of these conclusions were linked to from several spans, 
 # therefore I observe again fewer rows in the unlinked spans table. 
 ```
 
 ```{r include=FALSE}
-wrongly_unlinked_from_others <- semi_join(all_unlinked_sources, all_linked_sources, 
-          by = c("span_id" = "linked_span_id")
-          )
+# wrongly_unlinked_from_others <- semi_join(all_unlinked_sources, all_linked_sources, 
+#           by = c("span_id" = "linked_span_id")
+#           )
 ### all <- anti_join(all, wrongly_unlinked_from_others)
 ```
 

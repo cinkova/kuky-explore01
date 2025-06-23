@@ -26,7 +26,7 @@ I am not sure yet whether I will compute everything on the whole graph or on som
 - Each ArgM vertex is (or at least should be) connected to at least one Stoplight vertex. 
 
 
-```{r}
+```{r message=FALSE}
 library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
 library(igraph, warn.conflicts = FALSE, quietly = TRUE)
 library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
@@ -58,52 +58,162 @@ select_conclusions_vertices <- function(graph, relevance_threshold = 0){
 
 
 ## Computation of Vertex attributes
+To compare vertex attribute values across documents, most of them need to be normalized. The normalization mostly means that the given attribute value is divided by the total number of nodes in the network. In my network, not all vertices can have edges. The proportion of connectable vertices varies in networks, and so does the actual connectedness among the connectable ones. I want to keep these two perspectives separate. The former is sufficiently described as `edge_density` of the entire graph, so I actually only want to compute the latter. Therefore I will always compute vertex attributes on the relevant subgraph. 
+
+Note: it must be a subgraph and not just `vids` or `v` arguments in the vertex functions, because this setup would consider all vertices anyway and only add the values to the subset, whereas I need the opposite: to have this attribute in all vertices (with `NA` when irrelevant) and computed only on the relevant ones. 
+
+My current setup is to compute the attributes on four vertex subsets, namely "argum" vertices and "conclusions" vertices, each with `relevance_threshold` 0 and 0.9.
+
+Ideally, I want to have a list of setups and a list of functions and a function that would do the subsetting and inserting into the complete graph for any function. I will carefully describe the implementation logic mainly for my future reference of steps that were heavily supported by AI and that I would never have invented myself. 
+
+
+### Setups for vertex description
+Here is a function that takes a graph and a list of vertex subsets and returns it back. 
+The default value of the `vids_list` is the list with my four setups, which happen to be generated with functions, but an `igraph` query would work as well. Note that the function outputs vertex indices, not an entire subgraph! 
+
+This function may be clumsy, but it allows me to:
+- work without the graph being defined, and so I can use it in a map function to run it on a list of igraph objects, which is exactly what I will be doing all the time in this task;
+- have a sensible default but remaining open to different setups without having to edit a lot of code. 
+
+
 ```{r}
 
-make_vertex_attr_list <- function(graph){
-  list(
-    ### Degree ###
-    # Normalized for comparison between graphs. Hence I need separate 
-    # scenarios for the entire graph, argum with and without relevance threshold, 
-    # and conclusions with and without relevance threshold. 
-   # vertex_all_degree = degree(graph, loops = FALSE, normalized = TRUE)#,
-    vertex_argum_degree_0 = degree(
-      subgraph(graph, vids = select_argum_vertices(graph)), loops = FALSE, normalized = TRUE )
-    
 
-  # abs_degree = degree(g, loops = FALSE, normalized = FALSE),
-  # norm_closeness = closeness(g, normalized = TRUE),
-  # norm_betweenness = betweenness(g, normalized = TRUE),
-  # abs_betweenness = betweenness(g, normalized = FALSE),
-  # transitivity_local = transitivity(g, type = "local", isolates = "NaN"),
-  
-    #nezapomen na community detection modularity.igraph v Help R a konverzace s MS Copilot
-    
-  )
+# create_vids_list <- function(graph ){
+#   list("argum_0" = select_argum_vertices(graph),
+#        "argum_09" = select_argum_vertices(graph, relevance_threshold = 0.9),
+#        "conclusions_0" = select_conclusions_vertices(graph),
+#        "conclusions_09" = select_conclusions_vertices(graph, 
+#                                                       relevance_threshold = 0.9)
+#     
+#   )
+# }
+
+create_vids_list <- function(graph, 
+                             vids_list = list("argum_0" = select_argum_vertices(graph),
+       "argum_09" = select_argum_vertices(graph, relevance_threshold = 0.9),
+       "conclusions_0" = select_conclusions_vertices(graph),
+       "conclusions_09" = select_conclusions_vertices(graph,
+                                                      relevance_threshold = 0.9)
+
+  )){
+return(vids_list)  
 }
-
-add_vertex_attr_list <- function(graph) {
-  attr_list <- make_vertex_attr_list(graph)
-
-  # Use purrr::iwalk to iterate over the list and set each attribute
-  iwalk(attr_list, function(value, name) {
-    graph[select_argum_vertices(graph)] <<- set_vertex_attr(graph, name = name, value = value)
-  })
-  
-  return(graph)
-}
-
-
-test <- igraphs[1:2] # a simple igraph object not in a list
-test[[1]] %>% make_vertex_attr_list() %>% str()
-test <- map(test, ~ add_vertex_attr_list(.x))
-
-test[select_argum_vertices(test)] %>% map( ~ add_vertex_attr_list(.x))
-
-
-map(test, ~ vertex_attr_names(.x))
 
 ```
+
+
+### Functions list
+
+I want to have a list of names of the new vertex attributes and their associated functions with the appropriate arguments, to use in a future function. Each name in this list is (a part of) the name of an attribute that is going to be added to all nodes in a network.
+(The attribute names may get more complex if they also have to encode on which network subset the function was run.)
+
+
+```{r}
+# implementuj tyto funkce pro vertexy
+#   # abs_degree = degree(g, loops = FALSE, normalized = FALSE),
+#   # norm_closeness = closeness(g, normalized = TRUE),
+#   # norm_betweenness = betweenness(g, normalized = TRUE),
+#   # abs_betweenness = betweenness(g, normalized = FALSE),
+#   # transitivity_local = transitivity(g, type = "local", isolates = "NaN"),
+#   
+#     #nezapomen na community detection modularity.igraph v Help R a konverzace s MS Copilot
+create_attrs_functions_list <- function(graph, 
+                                        func_list = list(
+"norm_degree" = function(graph, ...)
+  {degree(graph = graph, loops = FALSE, normalized = TRUE)},
+"abs_degree" = function(graph, ...) 
+  {degree(graph = graph, loops = FALSE, normalized = FALSE)}, 
+"norm_closeness_weighted" = function(graph)
+  {closeness(graph = graph, normalized = TRUE)},
+"norm_betweenness_weighted" = function(graph, ...)
+  {betweenness(graph = graph, directed = FALSE, normalized = TRUE)},
+"norm_closeness_unweighted" = function(graph, ...)
+{closeness(graph = graph, normalized = TRUE, weights = NA)},
+"norm_betweenness_unweighted" = function(graph, ...){
+  betweenness(graph = graph, normalized = TRUE, directed = FALSE, weights = NA)}, 
+"transitivity_local_unweighted" = function(graph, ...){
+  transitivity(graph = graph, type = "local", isolates = "zero")},
+"transitivity_local_weighted" = function(graph, ...){
+  transitivity(graph = graph, type = "weighted", isolates = "zero") # see R help,
+  #A. Barrat's formula
+  })) {return(func_list)} 
+```
+
+TODO: component detection. Cliques and others are vertex attributes but the functions return lists and these need to be transformed to work smoothly with the attribute-assigning function. I will defer this. 
+Another interesting setup would be replacing the default weights with the `rel_distance` edge attribute, but this neither looks entirely straightforward.   
+
+
+
+
+```{r}
+
+
+mylist <- create_vids_list(test)
+mylist
+# I don't need the loop since I can do it with iwalk, see below
+# for (i in seq_along(mylist)) {
+# #  i <- 1
+#   test <- add_degree(graph = test, 
+#                      vids = mylist[[i]], 
+#                      new_attr_name = names(mylist)[i])
+# }
+# test
+# #my <- map(my, ~ add_degree(.x, vids = select_argum_vertices(.x, relevance_threshold = 0),
+# #                       new_attr_name = "normdegree_argum_0"))
+# test %>% vertex_attr_names()
+
+## This code adds normalized degree to all settings that I can list in the list above. This is not a function yet but it overwrites the original variable OK.  
+
+iwalk(mylist, .f = function(value, name){ # value, name must come in this order with iwalk. Just memorize it. Don't ask why. 
+  test <<- add_degree(graph = test, loops = FALSE, normalized = TRUE, new_attr_name = paste0("normdegree_",name), vids = value )})
+
+test %>% vertex_attr_names()
+
+
+```
+
+
+
+
+
+```{r}
+#Jeste to zkusim zobecnit pro jakoukoli funkci
+add_subgraph_vertattr <- function(graph, vids = V(graph), 
+                       .fun, 
+                       new_attr_name, ...){#
+  # name suffix for my experiment should be one of "_argum_0", "_argum_09", 
+  # "conclusions_0", "conclusions_09". 
+  # Three dots eat any arguments allowed by the `igraph` function inside. 
+  subg <- induced_subgraph(graph, vids = vids)
+  result <- .fun(subg)
+  #vertices <- vertex_attr(subg)
+  graph <- set_vertex_attr(graph, name = new_attr_name, value = NA)
+  graph <- set_vertex_attr(graph, name = new_attr_name, 
+                           value = result, index = names(result))
+
+return(graph)
+#graph <<- set_vertex_attr(graph, name = "")
+}
+
+oh <- add_subgraph_vertattr(graph = test, 
+                      vids = select_argum_vertices(test), 
+                      .fun = function(graph, ...){
+                        degree(graph = graph, loops = FALSE, 
+                               normalized = TRUE)}, 
+                      new_attr_name = "TEST_FUN")
+#oh %>% vertex_attr_names() OK
+
+iwalk(mylist, .f = function(value, name){ # value, name must come in this order with iwalk. Just memorize it. Don't ask why. 
+  test <<- add_subgraph_vertattr(graph = test, 
+                                 .fun = function(graph, ...){
+                        degree(graph = graph, loops = FALSE, 
+                               normalized = TRUE)},
+                        new_attr_name = paste0("normdegree_",name), vids = value )})
+test %>% vertex_attr_names()
+```
+
+
 
 
 
@@ -343,7 +453,24 @@ attr_list <- list(
 ```
 
 ```{r}
-
+# this function works nicely, so I will keep it as a referential down-to-earth version of my functions. 
+# add_degree <- function(graph, vids = V(graph), 
+#                        loops = FALSE, normalized = TRUE, 
+#                        new_attr_name, ...){#
+#   # name suffix for my experiment should be one of "_argum_0", "_argum_09", 
+#   # "conclusions_0", "conclusions_09". 
+#   # Three dots eat any arguments allowed by the `igraph` function inside. 
+#   subg <- induced_subgraph(graph, vids = vids)
+#   degrees <- degree(subg, loops = loops, normalized = normalized)
+#   #vertices <- vertex_attr(subg)
+#   graph <- set_vertex_attr(graph, name = new_attr_name, value = NA)
+#   graph <- set_vertex_attr(graph, name = new_attr_name, 
+#                            value = degrees, index = names(degrees))
+# 
+# return(graph)
+# #graph <<- set_vertex_attr(graph, name = "")
+# }
+# test <- igraphs[[1]]
 ```
 
 

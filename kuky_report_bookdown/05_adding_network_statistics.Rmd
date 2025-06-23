@@ -90,7 +90,8 @@ This function may be clumsy, but it allows me to:
 # }
 
 create_vids_list <- function(graph, 
-                             vids_list = list("argum_0" = select_argum_vertices(graph),
+                             vids_list = list(
+       "argum_0" = select_argum_vertices(graph),
        "argum_09" = select_argum_vertices(graph, relevance_threshold = 0.9),
        "conclusions_0" = select_conclusions_vertices(graph),
        "conclusions_09" = select_conclusions_vertices(graph,
@@ -110,14 +111,7 @@ I want to have a list of names of the new vertex attributes and their associated
 
 
 ```{r}
-# implementuj tyto funkce pro vertexy
-#   # abs_degree = degree(g, loops = FALSE, normalized = FALSE),
-#   # norm_closeness = closeness(g, normalized = TRUE),
-#   # norm_betweenness = betweenness(g, normalized = TRUE),
-#   # abs_betweenness = betweenness(g, normalized = FALSE),
-#   # transitivity_local = transitivity(g, type = "local", isolates = "NaN"),
-#   
-#     #nezapomen na community detection modularity.igraph v Help R a konverzace s MS Copilot
+
 create_attrs_functions_list <- function(graph, 
                                         func_list = list(
 "norm_degree" = function(graph, ...)
@@ -135,53 +129,37 @@ create_attrs_functions_list <- function(graph,
 "transitivity_local_unweighted" = function(graph, ...){
   transitivity(graph = graph, type = "local", isolates = "zero")},
 "transitivity_local_weighted" = function(graph, ...){
-  transitivity(graph = graph, type = "weighted", isolates = "zero") # see R help,
+  transitivity(graph = graph, type = "weighted", isolates = "zero")}#, # see R help,
   #A. Barrat's formula
-  })) {return(func_list)} 
+  # "pagerank_weighted" = function(graph, ...){
+  #   page_rank(graph = graph, algo = "arpack", directed = FALSE)}, 
+  # "pagerank_unweighted" = function(graph, ...){
+  #   page_rank(graph = graph, algo = "arpack", directed = FALSE, weights = NA)}
+                                        )) {return(func_list)}
 ```
 
-TODO: component detection. Cliques and others are vertex attributes but the functions return lists and these need to be transformed to work smoothly with the attribute-assigning function. I will defer this. 
-Another interesting setup would be replacing the default weights with the `rel_distance` edge attribute, but this neither looks entirely straightforward.   
+TODO: community detection. Cliques and other communities are vertex attributes, but the corresponding functions return lists and these need to be transformed to work smoothly with my future attribute-assigning function. I will defer this. 
+Another interesting setup would be replacing the default weights with the `rel_distance` edge attribute, but this neither looks entirely straightforward. I am also deferring this.   
 
 
-
+### Function to generate function list for each setup
 
 ```{r}
-
-
-mylist <- create_vids_list(test)
-mylist
-# I don't need the loop since I can do it with iwalk, see below
-# for (i in seq_along(mylist)) {
-# #  i <- 1
-#   test <- add_degree(graph = test, 
-#                      vids = mylist[[i]], 
-#                      new_attr_name = names(mylist)[i])
-# }
-# test
-# #my <- map(my, ~ add_degree(.x, vids = select_argum_vertices(.x, relevance_threshold = 0),
-# #                       new_attr_name = "normdegree_argum_0"))
-# test %>% vertex_attr_names()
-
-## This code adds normalized degree to all settings that I can list in the list above. This is not a function yet but it overwrites the original variable OK.  
-
-iwalk(mylist, .f = function(value, name){ # value, name must come in this order with iwalk. Just memorize it. Don't ask why. 
-  test <<- add_degree(graph = test, loops = FALSE, normalized = TRUE, new_attr_name = paste0("normdegree_",name), vids = value )})
-
-test %>% vertex_attr_names()
-
-
+all_func_list <-  
 ```
 
 
 
 
+### Function to assign vertex attributes using igraph functions
+
+This function takes one entire graph and a function. 
 
 ```{r}
-#Jeste to zkusim zobecnit pro jakoukoli funkci
+
 add_subgraph_vertattr <- function(graph, vids = V(graph), 
                        .fun, 
-                       new_attr_name, ...){#
+                       new_attr_name, suffix = "", ...){#
   # name suffix for my experiment should be one of "_argum_0", "_argum_09", 
   # "conclusions_0", "conclusions_09". 
   # Three dots eat any arguments allowed by the `igraph` function inside. 
@@ -196,14 +174,29 @@ return(graph)
 #graph <<- set_vertex_attr(graph, name = "")
 }
 
-oh <- add_subgraph_vertattr(graph = test, 
-                      vids = select_argum_vertices(test), 
-                      .fun = function(graph, ...){
-                        degree(graph = graph, loops = FALSE, 
-                               normalized = TRUE)}, 
-                      new_attr_name = "TEST_FUN")
-#oh %>% vertex_attr_names() OK
 
+
+
+test <- igraphs[[1]]
+funclist_test <- create_attrs_functions_list(test)
+#funclist_test
+vidslist_test <- create_vids_list(graph = test)
+
+test02 <- add_subgraph_vertattr(test, 
+                      vids = select_argum_vertices(test), 
+                      new_attr_name = names(funclist_test)[2], 
+                      .fun = funclist_test[[2]])
+
+
+iwalk(funclist_test, .f = function(value, name, ...){
+  test03 <<- add_subgraph_vertattr(graph = test, .fun = value, 
+                                   new_attr_name = name)
+  
+} )
+
+vertex_attr_names(test03)
+
+####################
 iwalk(mylist, .f = function(value, name){ # value, name must come in this order with iwalk. Just memorize it. Don't ask why. 
   test <<- add_subgraph_vertattr(graph = test, 
                                  .fun = function(graph, ...){
@@ -471,10 +464,32 @@ attr_list <- list(
 # #graph <<- set_vertex_attr(graph, name = "")
 # }
 # test <- igraphs[[1]]
+
+
+
+# mylist <- create_vids_list(test)
+# mylist
+# I don't need the loop since I can do it with iwalk, see below
+# for (i in seq_along(mylist)) {
+# #  i <- 1
+#   test <- add_degree(graph = test, 
+#                      vids = mylist[[i]], 
+#                      new_attr_name = names(mylist)[i])
+# }
+# test
+# #my <- map(my, ~ add_degree(.x, vids = select_argum_vertices(.x, relevance_threshold = 0),
+# #                       new_attr_name = "normdegree_argum_0"))
+# test %>% vertex_attr_names()
+
+## This code adds normalized degree to all settings that I can list in the list above. This is not a function yet but it overwrites the original variable OK.  
+
+# iwalk(mylist, .f = function(value, name){ # value, name must come in this order with iwalk. Just memorize it. Don't ask why. 
+#   test <<- add_degree(graph = test, loops = FALSE, normalized = TRUE, new_attr_name = paste0("normdegree_",name), vids = value )})
+# 
+# test %>% vertex_attr_names()
+
+
 ```
-
-
-
 
 
 

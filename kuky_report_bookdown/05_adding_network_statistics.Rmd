@@ -9,13 +9,11 @@ The network graphs are non-directed and combine the Stoplight and ArgM annotatio
 
 ## Design issues
 
-The `igraph` library enables me to compute statistics of individual vertices, edges, and whole graphs. I will list the ones I decided to add and say:
+The `igraph` library enables me to compute statistics of individual vertices and edges, whole graphs, and subgraphs. 
 
-1.  to which level of graph they relate (vertex, edge, the entire graph),
-2.  what they compute,
-3.  and how they could be useful as modeling features.
+Some attributes can be computed on the entire graph, but others make more sense when they are computed only on vertices that can connect with others.  
 
-I am not sure yet whether I will compute everything on the whole graph or on some sub-graphs. I cannot say yet how and when I will have to consider that the logic of the annotation imposes some restrictions on the connectedness of the nodes. The most principal connectedness limitations are: 
+The most principal connectedness limitations are: 
 - ArgM-to-ArgM edges can only occur between vertices with these combinations of labels: 
   - Law-Narrative
   - Conclusion-Narrative
@@ -23,8 +21,6 @@ I am not sure yet whether I will compute everything on the whole graph or on som
   - Law-Conclusion
   - LegalIssue-Conclusion.
   
-- Each ArgM vertex is (or at least should be) connected to at least one Stoplight vertex. 
-
 
 ```{r message=FALSE}
 library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
@@ -38,12 +34,11 @@ I will add the `igraph`-computed statistics directly to the `igraph object` and 
 
 I will compute many statistics on three sets of vertices: the complete set of vertices, the subset of vertices that can have edges (henceforth `argum` subset), and the subset of just vertices labeled as Conclusion (henceforth `conclusions` subset). I will use these names throughout the analysis. 
 I will create functions to do this subsetting because I will need to make these selections with a purrr function on a list of `igraph` objects. 
-I have introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@{section:argm_vertices_stoplight_enriched}. I will compute the statistics on argum and conclusions with different levels of the relevance threshold. In this initial feature extraction, I will use the threshold 0 (relevance neglected) and 0.9 (entirely or almost entirely relevant spans).
-
+I have also introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@{section:argm_vertices_stoplight_enriched}. I will compute the statistics on argum and conclusions with different levels of the relevance threshold. In this initial feature extraction, I will use the threshold 0 (relevance neglected) and 0.9 (entirely or almost entirely relevant spans).
 
 
 ```{r}
-igraphs <- read_rds("kuky_data/igraphs_sorted.rds")
+igraphs <- read_rds("kuky_data/igraphs_sorted.rds") # read the original vertices and edges tables produced by scripts in previous files
 select_argum_vertices <- function(graph, relevance_threshold = 0) {
   V(graph)[span_label %in% c("Law", "Narrative","Conclusion", 
                                     "LegalIssue") & span_Relevant >= relevance_threshold]
@@ -54,6 +49,26 @@ select_conclusions_vertices <- function(graph, relevance_threshold = 0){
 }
    
 ```
+
+## A small digression:  Supply edge_proximity as an alternative edge weight to weighted metrics
+My edges have an attribute called `rel_distance`. It shows the proportion of text that lies between the two spans. I would like to supply this as an alternative weight to vertex functions that allow weights.It is a different perspective than the default edge weight, which gives the total proportion of text covered by this pair of vertices.  
+However, `rel_distance` needs to be transformed to `1 - rel_distance` because the intuition says that distance would weaken the connection between two vertices, so we need a sort of inverse value, which will be positional proximity. In fact, the `rel_proximity` is the complement to 1, which represents the entire text (including the text inside the spans in question).  
+
+Here is a function that adds to each `igraph` object. 
+
+```{r}
+add_relative_proximity <- function(graph){
+  edge_reldistances <- edge_attr(graph, name = "rel_distance")
+  edge_relproximity <- 1 - edge_reldistances
+  graph <- set_edge_attr(graph, name = "rel_proximity", value = edge_relproximity)
+  return(graph)
+}
+
+igraphs <- map(igraphs, add_relative_proximity)
+```
+
+
+Now back to the main business. 
 
 
 ## Computation of Vertex attributes
@@ -110,7 +125,6 @@ I want to have a list of names of the new vertex attributes and their associated
 
 
 ```{r}
-
 create_attrs_functions_list <- function(graph, 
                                         func_list = list(
 "norm_degree" = function(graph, ...)
@@ -128,12 +142,44 @@ create_attrs_functions_list <- function(graph,
 "transitivity_local_unweighted" = function(graph, ...){
   transitivity(graph = graph, type = "local", isolates = "zero")},
 "transitivity_local_weighted" = function(graph, ...){
-  transitivity(graph = graph, type = "weighted", isolates = "zero")}#, # see R help,
+  transitivity(graph = graph, type = "weighted", isolates = "zero")}, # see R help,
   #A. Barrat's formula
-  # "pagerank_weighted" = function(graph, ...){
-  #   page_rank(graph = graph, algo = "arpack", directed = FALSE)}, 
-  # "pagerank_unweighted" = function(graph, ...){
-  #   page_rank(graph = graph, algo = "arpack", directed = FALSE, weights = NA)}
+  "pagerank_weighted" = function(graph, ...){
+    pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE)
+    result <- pg$vector
+    return(result)},
+  "pagerank_unweighted" = function(graph, ...){
+    pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE, weights = NA)
+    result <- pg$vector
+    return(result)},
+"eccentricity_weighted" = function(graph,...){
+  eccentricity(graph, weights = NULL)},
+"eccentricity_unweighted" = function(graph,...){
+  eccentricity(graph, weights = NA)},
+# weighted with relative proximity of edges
+"norm_closeness_weightedby_relproximity" = function(graph, ...){
+  relprox <- edge_attr(graph, name = "rel_proximity")
+  closeness(graph = graph, normalized = TRUE, weights = relprox)}, 
+"norm_betweenness_weightedby_relproximity" = function(graph, ...) {
+  relprox <- edge_attr(graph, name = "rel_proximity")
+  betweenness(graph = graph, directed = FALSE, normalized = TRUE, 
+              weights = relprox)},
+"transitivity_local_weightedby_relproximity" = function(graph, ...) {
+  relprox <- edge_attr(graph, name = "rel_proximity")
+  transitivity(graph = graph, type = "weighted", isolates = "zero",
+               weights = relprox)},
+  "pagerank_weightedby_relproximity" = function(graph, ...) {
+   relprox <- edge_attr(graph, name = "rel_proximity")
+   pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE, 
+                   weights = relprox)
+  result <- pg$vector
+    return(result)},
+  "eccentricity_weighted" = function(graph,...){
+    relprox <- edge_attr(graph, name = "rel_proximity")
+  eccentricity(graph, weights = relprox)}
+  
+  
+  
                                         )) {return(func_list)}
 ```
 
@@ -144,7 +190,6 @@ Another interesting setup would be replacing the default weights with the `rel_d
 
 ### Function to assign vertex attributes using igraph functions
 
-This function takes one entire graph and a function. 
 
 ```{r}
 
@@ -167,42 +212,6 @@ return(graph)
 
 
 
-
-# test <- igraphs[[1]]
-# funclist_test <- create_attrs_functions_list(test)
-# #funclist_test
-# vidslist_test <- create_vids_list(graph = test)
-
-### one igraph, one function, one setup. Works fine.  
-#test02 <- add_subgraph_vertattr(test, 
-#                       vids = select_argum_vertices(test), 
-#                       new_attr_name = names(funclist_test)[2], 
-#                       .fun = funclist_test[[2]])
-
-### one igraph, all functions, one setup. Works fine. 
-# iwalk(funclist_test, .f = function(value, name, ...){
-#   test <<- add_subgraph_vertattr(graph = test, .fun = value, 
-#                                    new_attr_name = name)} )
-
-### one igraph, all functions, all setups in a loop. Works fine.
-# for (i in seq_along(vidslist_test)) {
-#   vids <- vidslist_test[[i]]
-#   iwalk(funclist_test, .f = function(value, name, ...) {
-#   test <<- add_subgraph_vertattr(graph = test, 
-#                                  .fun = value, 
-#                                  new_attr_name = name, 
-#                                  suffix = names(vidslist_test)[i])
-#   })
-# }
-# vertex_attr_names(test)
-# vertex_attr(test, "abs_degree-conclusions_09")
-# vertex_attr(test, "transitivity_local_weighted-conclusions_09")
-
-
-### One igraph, all functions, all setups. map, loop, iwalk. It works fine!
-# Hopefully this allows for using it with maps on a list of igraphs.  
-
-
 add_attrs_to_igraph <- function(graph) {
  funclist_graph <- create_attrs_functions_list(graph)
  #print(funclist_graph)
@@ -222,23 +231,16 @@ add_attrs_to_igraph <- function(graph) {
  return(graph)  
 }
 
-# test <- igraphs[[1]]
-# test <- add_attrs_to_igraph(test)
-# 
-# vertex_attr_names(test)
+igraphs <- map(igraphs, ~ add_attrs_to_igraph(.x))
+# igraphs[[1]] %>% vertex_attr_names() # worked fine
 ```
+
+
+## Community detection
 
 ```{r}
-maptest <- igraphs
-maptest <- maptest %>% add_attrs_to_igraph()
+
 ```
-
-
-
-
-## Computation of Edge attributes
-
-
 
 
 ## Computation of Graph attributes
@@ -439,26 +441,34 @@ add_graph_attr_list <- function(graph) {
   return(graph)
 }
 
+
+test <- igraphs # a simple igraph object not in a list
+test <- map(test, ~ add_graph_attr_list(.x))
+test[[1]] %>% vertex_attr_names()
+```
+
+```{r}
+layout_grid <- layout_on_grid(.x, width = 3)
+layout_with_fr <- layout_with_fr()
 label_colors <- c(
 "Conclusion" = "tomato",
 "Narrative" = "darkgreen",
 "Law" = "navyblue",
 "LegalIssue" = "purple"
 )
-test <- igraphs # a simple igraph object not in a list
-test <- map(test, ~ add_graph_attr_list(.x))
 map(test, ~ graph_attr(.x, "argum_transitivity_global_09")) %>% 
-  map(function(x) x > 0.8)
-keep(test, ~ graph_attr(.x, "argum_transitivity_global_09") > 0.8) %>%
+  map(function(x) x > 0.7)
+keep(test, ~ graph_attr(.x, "argum_transitivity_global_09") > 0.7) %>%
   map(~ induced_subgraph(.x, select_argum_vertices(.x, relevance_threshold = 0.9))) %>% 
   map(~ {V(.x)$color <- label_colors[V(.x)$span_label]
   .x}) %>% 
   map(~ plot(.x,
              vertex.label.color = V(.x)$color,
              vertex.label = V(.x)$span_label, 
+             edge.curved = TRUE,
              #vertex.label = V(.x)$span_start,
              vertex.size = 0, 
-             layout = layout_on_grid(.x, width = 3)))
+             layout = layout_with_fr))
 ```
 ```{r}
 library(stringi)
@@ -479,6 +489,7 @@ iwalk(filtered_graphs, ~ {
   plot(.x,
        vertex.label.color = V(.x)$color,
        vertex.label = V(.x)$span_label,
+       edge.curved = TRUE,
        vertex.size = 0,
        layout = layout_on_grid(.x, width = 3))
   dev.off()
@@ -489,29 +500,6 @@ iwalk(filtered_graphs, ~ {
 
 
 
-```{r}
-## tohle nemazat, to funguje
-igraphs %<>% 
-  purrr::map2(.y = degrees_all, ~ {V(.x)$degree <- .y
-  return(.x)
-  })
-```
-
-```{r}
-
-
-# Named list of attributes
-attr_list <- list(
-  
-  
-)
-
-# Use purrr::iwalk to assign each attribute
-#iwalk(attr_list, function(values, name) {
-#  g <<- set_vertex_attr(g, name = name, value = values)
-#})
-#g
-```
 
 ```{r}
 # this function works nicely, so I will keep it as a referential down-to-earth version of my functions. 

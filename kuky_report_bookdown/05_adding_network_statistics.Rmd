@@ -31,8 +31,6 @@ library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
 library(igraph, warn.conflicts = FALSE, quietly = TRUE)
 library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
 
-igraphs <- read_rds("kuky_data/igraphs_sorted.rds")
-
 ```
 
 I will add the `igraph`-computed statistics directly to the `igraph object` and eventually export all these variables as data frames of vertices and edges. 
@@ -45,6 +43,7 @@ I have introduced a `relevance_threshold`, that has a default at 0. If set to la
 
 
 ```{r}
+igraphs <- read_rds("kuky_data/igraphs_sorted.rds")
 select_argum_vertices <- function(graph, relevance_threshold = 0) {
   V(graph)[span_label %in% c("Law", "Narrative","Conclusion", 
                                     "LegalIssue") & span_Relevant >= relevance_threshold]
@@ -142,14 +141,6 @@ TODO: community detection. Cliques and other communities are vertex attributes, 
 Another interesting setup would be replacing the default weights with the `rel_distance` edge attribute, but this neither looks entirely straightforward. I am also deferring this.   
 
 
-### Function to generate function list for each setup
-
-```{r}
-all_func_list <-  
-```
-
-
-
 
 ### Function to assign vertex attributes using igraph functions
 
@@ -157,17 +148,17 @@ This function takes one entire graph and a function.
 
 ```{r}
 
-add_subgraph_vertattr <- function(graph, vids = V(graph), 
-                       .fun, 
+add_subgraph_vertattr <- function(graph, vids = V(graph),
+                       .fun,
                        new_attr_name, suffix = "", ...){#
-  # name suffix for my experiment should be one of "_argum_0", "_argum_09", 
-  # "conclusions_0", "conclusions_09". 
-  # Three dots eat any arguments allowed by the `igraph` function inside. 
+  # name suffix for my experiment should be one of "_argum_0", "_argum_09",
+  # "conclusions_0", "conclusions_09".
+  # Three dots eat any arguments allowed by the `igraph` function inside.
   subg <- induced_subgraph(graph, vids = vids)
   result <- .fun(subg)
   #vertices <- vertex_attr(subg)
-  graph <- set_vertex_attr(graph, name = new_attr_name, value = NA)
-  graph <- set_vertex_attr(graph, name = new_attr_name, 
+  graph <- set_vertex_attr(graph, name = str_c(new_attr_name, suffix, sep = "-"), value = NA)
+  graph <- set_vertex_attr(graph, name = str_c(new_attr_name, suffix, sep = "-"),
                            value = result, index = names(result))
 
 return(graph)
@@ -177,35 +168,70 @@ return(graph)
 
 
 
-test <- igraphs[[1]]
-funclist_test <- create_attrs_functions_list(test)
-#funclist_test
-vidslist_test <- create_vids_list(graph = test)
+# test <- igraphs[[1]]
+# funclist_test <- create_attrs_functions_list(test)
+# #funclist_test
+# vidslist_test <- create_vids_list(graph = test)
 
-test02 <- add_subgraph_vertattr(test, 
-                      vids = select_argum_vertices(test), 
-                      new_attr_name = names(funclist_test)[2], 
-                      .fun = funclist_test[[2]])
+### one igraph, one function, one setup. Works fine.  
+#test02 <- add_subgraph_vertattr(test, 
+#                       vids = select_argum_vertices(test), 
+#                       new_attr_name = names(funclist_test)[2], 
+#                       .fun = funclist_test[[2]])
+
+### one igraph, all functions, one setup. Works fine. 
+# iwalk(funclist_test, .f = function(value, name, ...){
+#   test <<- add_subgraph_vertattr(graph = test, .fun = value, 
+#                                    new_attr_name = name)} )
+
+### one igraph, all functions, all setups in a loop. Works fine.
+# for (i in seq_along(vidslist_test)) {
+#   vids <- vidslist_test[[i]]
+#   iwalk(funclist_test, .f = function(value, name, ...) {
+#   test <<- add_subgraph_vertattr(graph = test, 
+#                                  .fun = value, 
+#                                  new_attr_name = name, 
+#                                  suffix = names(vidslist_test)[i])
+#   })
+# }
+# vertex_attr_names(test)
+# vertex_attr(test, "abs_degree-conclusions_09")
+# vertex_attr(test, "transitivity_local_weighted-conclusions_09")
 
 
-iwalk(funclist_test, .f = function(value, name, ...){
-  test03 <<- add_subgraph_vertattr(graph = test, .fun = value, 
-                                   new_attr_name = name)
-  
+### One igraph, all functions, all setups. map, loop, iwalk. It works fine!
+# Hopefully this allows for using it with maps on a list of igraphs.  
+
+
+add_attrs_to_igraph <- function(graph) {
+ funclist_graph <- create_attrs_functions_list(graph)
+ #print(funclist_graph)
+ vidslist_graph <- create_vids_list(graph)
+ #print(vidslist_graph)
+
+  iwalk(funclist_graph, .f = function(value, name, ...) {
+     for (i in seq_along(vidslist_graph)) {
+  vids <- vidslist_graph[[i]]
+  graph <<- add_subgraph_vertattr(graph = graph,
+                                 .fun = value,
+                                 new_attr_name = name,
+                                 suffix = names(vidslist_graph)[i])
+  #print(vertex_attr_names(graph))
+     }
 } )
+ return(graph)  
+}
 
-vertex_attr_names(test03)
-
-####################
-iwalk(mylist, .f = function(value, name){ # value, name must come in this order with iwalk. Just memorize it. Don't ask why. 
-  test <<- add_subgraph_vertattr(graph = test, 
-                                 .fun = function(graph, ...){
-                        degree(graph = graph, loops = FALSE, 
-                               normalized = TRUE)},
-                        new_attr_name = paste0("normdegree_",name), vids = value )})
-test %>% vertex_attr_names()
+# test <- igraphs[[1]]
+# test <- add_attrs_to_igraph(test)
+# 
+# vertex_attr_names(test)
 ```
 
+```{r}
+maptest <- igraphs
+maptest <- maptest %>% add_attrs_to_igraph()
+```
 
 
 
@@ -413,10 +439,52 @@ add_graph_attr_list <- function(graph) {
   return(graph)
 }
 
-
-test <- igraphs[1:2] # a simple igraph object not in a list
+label_colors <- c(
+"Conclusion" = "tomato",
+"Narrative" = "darkgreen",
+"Law" = "navyblue",
+"LegalIssue" = "purple"
+)
+test <- igraphs # a simple igraph object not in a list
 test <- map(test, ~ add_graph_attr_list(.x))
-map(test, ~ graph_attr(.x))
+map(test, ~ graph_attr(.x, "argum_transitivity_global_09")) %>% 
+  map(function(x) x > 0.8)
+keep(test, ~ graph_attr(.x, "argum_transitivity_global_09") > 0.8) %>%
+  map(~ induced_subgraph(.x, select_argum_vertices(.x, relevance_threshold = 0.9))) %>% 
+  map(~ {V(.x)$color <- label_colors[V(.x)$span_label]
+  .x}) %>% 
+  map(~ plot(.x,
+             vertex.label.color = V(.x)$color,
+             vertex.label = V(.x)$span_label, 
+             #vertex.label = V(.x)$span_start,
+             vertex.size = 0, 
+             layout = layout_on_grid(.x, width = 3)))
+```
+```{r}
+library(stringi)
+library(purrr)
+
+# Filter and process graphs
+filtered_graphs <- test %>%
+  keep(~ graph_attr(.x, "argum_transitivity_global_09") > 0.8) %>%
+  map(~ induced_subgraph(.x, select_argum_vertices(.x, relevance_threshold = 0.9))) %>%
+  map(~ {V(.x)$color <- label_colors[V(.x)$span_label]; .x})
+
+names(filtered_graphs)
+
+# Save each plot using the list names
+iwalk(filtered_graphs, ~ {
+  file_name <- paste0("graph_plot_", .y, ".png")
+  png(file_name, width = 800, height = 800)
+  plot(.x,
+       vertex.label.color = V(.x)$color,
+       vertex.label = V(.x)$span_label,
+       vertex.size = 0,
+       layout = layout_on_grid(.x, width = 3))
+  dev.off()
+})
+
+
 ```
 
 

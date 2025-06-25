@@ -145,10 +145,12 @@ create_attrs_functions_list <- function(graph,
   transitivity(graph = graph, type = "weighted", isolates = "zero")}, # see R help,
   #A. Barrat's formula
   "pagerank_weighted" = function(graph, ...){
+    set.seed(422)
     pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE)
     result <- pg$vector
     return(result)},
   "pagerank_unweighted" = function(graph, ...){
+    set.seed(422)
     pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE, weights = NA)
     result <- pg$vector
     return(result)},
@@ -158,28 +160,166 @@ create_attrs_functions_list <- function(graph,
   eccentricity(graph, weights = NA)},
 # weighted with relative proximity of edges
 "norm_closeness_weightedby_relproximity" = function(graph, ...){
-  relprox <- edge_attr(graph, name = "rel_proximity")
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
   closeness(graph = graph, normalized = TRUE, weights = relprox)}, 
 "norm_betweenness_weightedby_relproximity" = function(graph, ...) {
-  relprox <- edge_attr(graph, name = "rel_proximity")
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
   betweenness(graph = graph, directed = FALSE, normalized = TRUE, 
               weights = relprox)},
 "transitivity_local_weightedby_relproximity" = function(graph, ...) {
-  relprox <- edge_attr(graph, name = "rel_proximity")
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
   transitivity(graph = graph, type = "weighted", isolates = "zero",
                weights = relprox)},
   "pagerank_weightedby_relproximity" = function(graph, ...) {
-   relprox <- edge_attr(graph, name = "rel_proximity")
+    set.seed(422)
+   relprox <- edge_attr(graph = graph, name = "rel_proximity")
    pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE, 
                    weights = relprox)
   result <- pg$vector
     return(result)},
   "eccentricity_weighted" = function(graph,...){
-    relprox <- edge_attr(graph, name = "rel_proximity")
-  eccentricity(graph, weights = relprox)}
-  
-  
-  
+    relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  eccentricity(graph = graph, weights = relprox)},
+ "coreness" = function(graph, ...){coreness(graph = graph, mode = "all")},
+### Community detection
+"cluster_louvain_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_louvain(graph = graph, weights = NULL) 
+  return(membership(communities))},
+"cluster_louvain_weightedby_relproximity" = function(graph, ...) {
+  set.seed(422)
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_louvain(graph = graph, weights = relprox)
+  return(membership(communities))},
+"cluster_louvain_unweighted" = function(graph, ...) {
+  set.seed(422)
+  communities <- cluster_louvain(graph = graph, weights = NA)
+  return(membership(communities))}, 
+"cluster_walktrap_weighted4steps" = function(graph, ...) {
+  set.seed(422)
+  communities <- cluster_walktrap(graph = graph, modularity = TRUE, 
+                   steps = 4, merges = FALSE, weights = NULL)
+  return(membership(communities))},
+"cluster_walktrap_weightedbyrelproximity4steps" = function(graph, ...) {
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_louvain(graph = graph, weights = relprox)
+  set.seed(422)
+  communities <- cluster_walktrap(graph = graph, modularity = TRUE, 
+                   steps = 4, merges = FALSE, weights = relprox)
+  return(membership(communities))},
+  "cluster_walktrap_unweighted4steps" = function(graph, ...) {
+  set.seed(422)
+  communities <- cluster_walktrap(graph = graph, modularity = TRUE, 
+                   steps = 4, merges = FALSE, weights = NA)
+  return(membership(communities))},
+  "cluster_infomap_weighted" = function(graph, ...){
+    set.seed(422)
+    communities <- cluster_infomap(graph = graph, e.weights = NULL, nb.trials = 10, modularity = TRUE)
+    return(membership(communities))},
+"cluster_infomap_unweighted" = function(graph, ...){
+    set.seed(422)
+    communities <- cluster_infomap(graph = graph, e.weights = NA, nb.trials = 10, modularity = TRUE)
+    return(membership(communities))},
+"cluster_infomap_weightedbyrelproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+    set.seed(422)
+    communities <- cluster_infomap(graph = graph, e.weights = relprox, nb.trials = 10, modularity = TRUE)
+    return(membership(communities))},
+"cluster_label_prop_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = NULL)
+  return(membership(communities))},
+"cluster_label_unweighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = NA)
+  return(membership(communities))},
+"cluster_label_prop_weightedbyrelproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = relprox)
+  return(membership(communities))},
+"cluster_fast_greedy_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_fast_greedy(graph = graph, weights = NULL)
+  return(membership(communities))},
+"cluster_fast_greedy_unweighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_fast_greedy(graph = graph, weights = NA)
+  return(membership(communities))},
+"cluster_fast_greedy_weightedbyrelproximity" = function(graph, ...){
+  set.seed(422)
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_fast_greedy(graph = graph, weights = relprox)
+  return(membership(communities))},
+"cluster_leiden_CPM01_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = NULL, resolution = 0.1)
+  return(membership(communities))},
+"cluster_leiden_CPM01_unweighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = NA, resolution = 0.1)
+  return(membership(communities))},
+"cluster_leiden_CPM01_weightedbyrelativeproximity" = function(graph, ...){
+  set.seed(422)
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = relprox, resolution = 0.1)
+  return(membership(communities))},
+"cluster_leiden_CPM05_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = NULL, resolution = 0.5)
+  return(membership(communities))},
+"cluster_leiden_CPM05_unweighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = NA, resolution = 0.5)
+  return(membership(communities))},
+"cluster_leiden_CPM05_weightedbyrelativeproximity" = function(graph, ...){
+  set.seed(422)
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = relprox, resolution = 0.5)
+  return(membership(communities))},
+"cluster_leiden_CPM1_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = NULL, resolution = 1)
+  return(membership(communities))},
+"cluster_leiden_CPM1_unweighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = NA, resolution = 1)
+  return(membership(communities))},
+"cluster_leiden_CPM1_weightedbyrelativeproximity" = function(graph, ...){
+  set.seed(422)
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_leiden(graph = graph, objective_function = "CPM",
+                                weights = relprox, resolution = 1)
+  return(membership(communities))},
+"cluster_edge_betweenness_weighted" = function(graph, ...){
+  communities <- cluster_edge_betweenness(graph = graph, weights = NULL, directed = FALSE)
+  return(membership(communities))},
+"cluster_edge_betweenness_unweighted" = function(graph, ...){
+  communities <- cluster_edge_betweenness(graph = graph, weights = NA, directed = FALSE)
+  return(membership(communities))},
+"cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_edge_betweenness(graph = graph, weights = relprox, directed = FALSE)
+  return(membership(communities))},
+"cluster_optimal_weighted" = function(graph, ...){
+  communities <- cluster_optimal(graph = graph, weights = NULL)
+  return(membership(communities))},
+"cluster_optimal_unweighted" = function(graph, ...){
+  communities <- cluster_optimal(graph = graph, weights = NA)
+  return(membership(communities))},
+"cluster_optimal_weightedbyrelativeproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_optimal(graph = graph, weights = relprox)
+  return(membership(communities))}
+
                                         )) {return(func_list)}
 ```
 
@@ -232,7 +372,8 @@ add_attrs_to_igraph <- function(graph) {
 }
 
 igraphs <- map(igraphs, ~ add_attrs_to_igraph(.x))
-# igraphs[[1]] %>% vertex_attr_names() # worked fine
+ igraphs[[1]] %>% vertex_attr_names() # worked fine
+ igraphs[[1]] %>% vertex_attr("cluster_louvain_unweighted-argum_0")
 ```
 
 

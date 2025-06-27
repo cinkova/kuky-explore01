@@ -174,7 +174,10 @@ A value between 0 and 1. It is the sum of the relative length of both vertices c
 The rationale behind this value as weight is that it can help trace well-founded conclusions with eigenvector centrality, abstracting from annotator's individual preferences for splitting vs. lumping equal-labeled statements when marking them with spans.  
 
 ### `rel_distance`
-A value between 0 and 1. It is the proportion of text (in characters, including markup) that spans between the relative end position (`span_rel_end` in the vertices table) of the earlier vertex and the relative start position (`span_rel_start` in the vertices table) of the later vertex, computed as their difference. Always a positive number.  
+A value between 0 and 1. It is the proportion of text (in characters, including markup) that spans between the relative end position (`span_rel_end` in the vertices table) of the earlier vertex and the relative start position (`span_rel_start` in the vertices table) of the later vertex, computed as their difference. Always a positive number. 
+I will also use this attribute as an alternative weight in eigenvector centrality and similar measures, after a transformation to 1-`rel_distance`. The reason is my assumption that positional proximity of two spans ought to increase their connection, whereas positional distance ought to decrease it. 
+
+### 
 
 
 

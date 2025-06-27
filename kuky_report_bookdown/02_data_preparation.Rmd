@@ -215,16 +215,56 @@ I will create a table of linked rules separately and reverse the order
 of columns so that the links go from Rules to Conclusions and
 Narratives.
 
+<!--Revize 25.6.2025
+Puvodni kod nize nevyrobi linky od Pravidel k Zaverum, protoze v te tabulce chybi 
+pary zaveru s pribehy, od kterych by se to dalo odvodit. 
+-->
+
 ```{r}
-linked_rules <- linked_argm  %>% 
-  filter(linked_label.x == argm_labels[6])
-x2y_cols_linked_rules <- linked_rules %>% select(ends_with(".x")) %>%
-  rename_with(., .fn = ~ str_replace(.x, "\\.x", ".y"))
-y2x_cols_linked_rules <- linked_rules %>% select(ends_with(".y")) %>%
-  rename_with(., .fn = ~ str_replace(.x, "\\.y", ".x"))
-linked_rules <- bind_cols(y2x_cols_linked_rules, x2y_cols_linked_rules) 
+# linked_rules <- linked_argm  %>% 
+#   filter(linked_label.x == argm_labels[6])
+# x2y_cols_linked_rules <- linked_rules %>% select(ends_with(".x")) %>%
+#   rename_with(., .fn = ~ str_replace(.x, "\\.x", ".y"))
+# y2x_cols_linked_rules <- linked_rules %>% select(ends_with(".y")) %>%
+#   rename_with(., .fn = ~ str_replace(.x, "\\.y", ".x"))
+# linked_rules <- bind_cols(y2x_cols_linked_rules, x2y_cols_linked_rules) 
 
 ```
+
+
+<!-- znovu a lepe -->
+
+```{r}
+pribeh_zaver <- linked_argm %>% 
+  filter(label.x == "Příběh" & linked_label.x == "Závěr")
+pribeh_pravidlo <- linked_argm %>% 
+  filter(label.x == "Příběh" & linked_label.x == "Pravidlo") 
+pribeh_zaver_pravidlo <- inner_join(pribeh_zaver, pribeh_pravidlo,
+                                    by = c("doc_id.x", "doc_name.x",
+                                           "task_type.x", "label.x",
+                                           "start.x", "end.x", "span_id.x",
+                                           "plainText.x", "Readability.x", 
+                                           "SyllogismBased.x", "DocumentVersion.x",
+                                           "ParentDocumentID.x", "LegalActType.x", 
+                                           "Objectivity.x", "Bindingness.x", 
+                                           "AuthorType.x", "RecipientType.x",
+                                           "RecipientIndividuation.x", 
+                                           "Anonymized.x", "span_text.x"
+                                           ),
+                                   relationship = "many-to-many", keep = FALSE)
+
+linked_rules <- pribeh_zaver_pravidlo %>% 
+  select(c(ends_with(".y.x"), ends_with(".y.y"))) %>%
+  rename_with(.fn = ~ str_remove(.x, pattern = "[.]y(?=[.])")) %>% 
+  distinct()
+
+```
+
+
+```{r}
+linked_rules %>% group_by(label.x, label.y) %>% count()
+```
+
 
 ```{r}
 #check, should return zero

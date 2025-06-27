@@ -308,23 +308,23 @@ create_attrs_functions_list <- function(graph,
 "cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
   communities <- cluster_edge_betweenness(graph = graph, weights = relprox, directed = FALSE)
-  return(membership(communities))},
-"cluster_optimal_weighted" = function(graph, ...){
-  communities <- cluster_optimal(graph = graph, weights = NULL)
-  return(membership(communities))},
-"cluster_optimal_unweighted" = function(graph, ...){
-  communities <- cluster_optimal(graph = graph, weights = NA)
-  return(membership(communities))},
-"cluster_optimal_weightedbyrelativeproximity" = function(graph, ...){
-  relprox <- edge_attr(graph = graph, name = "rel_proximity")
-  communities <- cluster_optimal(graph = graph, weights = relprox)
-  return(membership(communities))}
+  return(membership(communities))}#,
+# "cluster_optimal_weighted" = function(graph, ...){
+#   communities <- cluster_optimal(graph = graph, weights = NULL)
+#   return(membership(communities))}, # this froze on 29 A 80-2021_20231122101241.md--6549578ac6537d54ff05c2d4  or at least that's where it was when I interrupted it hours later. Error in cluster_optimal(.) : 
+  #At vendor/cigraph/src/internal/glpk_support.c:161 : Modularity optimization failed (GLP_ESTOP), Interrupted
+# "cluster_optimal_unweighted" = function(graph, ...){
+#   communities <- cluster_optimal(graph = graph, weights = NA)
+#   return(membership(communities))},
+# "cluster_optimal_weightedbyrelativeproximity" = function(graph, ...){
+#   relprox <- edge_attr(graph = graph, name = "rel_proximity")
+#   communities <- cluster_optimal(graph = graph, weights = relprox)
+#   return(membership(communities))}
 
                                         )) {return(func_list)}
 ```
 
-TODO: community detection. Cliques and other communities are vertex attributes, but the corresponding functions return lists and these need to be transformed to work smoothly with my future attribute-assigning function. I will defer this. 
-Another interesting setup would be replacing the default weights with the `rel_distance` edge attribute, but this neither looks entirely straightforward. I am also deferring this.   
+
 
 
 

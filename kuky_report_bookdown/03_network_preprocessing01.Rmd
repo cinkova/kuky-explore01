@@ -180,8 +180,8 @@ So I will abstain from de-duplication here because it apparently causes a loss o
 
 ```{r include=FALSE}
 #all_wrongly_unlinked <- semi_join(all_unlinked_sources, all_linked_sources, 
-                                  by = "span_id"
-                                  )
+                                  # by = "span_id"
+                                  # )
 ```
 
 ```{r include=FALSE}

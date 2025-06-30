@@ -37,17 +37,16 @@ I will list the files in the order of coming into existence. Note that some capt
  
 - `vertices_list.rds`,  `edges_list.rds`: created in Chapter \ref@(chapter:network-analysis). Edges and vertices as data frames ready to go into `igraph`. Each document is going to have its own `igraph` object defined by a pair of vertices and edges data frames. For this, I have created a list of vertices data frames and a list of edges data frames. Both lists are named with identical names that encode the document and the annotation owner. (Mind that some documents have multiple annotation and I am still keeping all options available.) I used the `argm_vertices_stoplight_enriched_df` vertices and `argm_edges` to created these objects. 
 
-- `igraphs.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs. 
 
-- `igraphs_sorted.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). 
+- `igraphs_directed_sorted.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). The vertices are sorted according to their order of appearance in the document. The graphs are interpreted as directed, that is, the vertices in the first column of the edges data frame were interpreted as source vertices and the vertices in the second column of the edges data frame were interpreted as target vertices.    
+
+- `igraphs_nondirected_sorted.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). The vertices are sorted according to their order of appearance in the document. The graphs are interpreted as non-directed, that is, the edge between each pair of vertices is bidirectional. 
 
 - `stoplight_vertices_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). A data frame of vertices of the stoplight annotation. 
 
 - `stoplight_edges_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). A data frame of edges between the stoplight annotation spans and ArgM annotation spans. 
 
-- `igraphs.rds`
 
-- `igraphs_sorted.rds`
 
 
 ## Dataset `argm_vertices_enriched_df.rds/tsv` {#section:argm_vertices_stoplight_enriched}

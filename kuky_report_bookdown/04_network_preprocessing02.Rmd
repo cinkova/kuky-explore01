@@ -188,13 +188,12 @@ argm_edges_df <- mydata %>%
   select(!c(minspan, maxspan)) %>% 
   distinct(uid, .keep_all = TRUE) %>%
   select(!c(uid, label, linked_label))
-write_rds(argm_edges_df, "kuky_data/argm_edges_df.rds")
-write_tsv(argm_edges_df, "kuky_data/argm_edges_df.tsv")
+write_rds(argm_edges_df, "kuky_data/argm_edges_df_undirected.rds")
+write_tsv(argm_edges_df, "kuky_data/argm_edges_df_undirected.tsv")
+
 ```
 
-Rows before de-duplication: `r nrow(mydata)`.
 
-Rows after de-duplication: `r nrow(argm_edges_df)`.
 
 ## Stoplight data
 
@@ -421,6 +420,32 @@ write_rds(argm_vertices_enriched_df, "kuky_data/argm_vertices_stoplight_enriched
 write_tsv(argm_vertices_enriched_df, "kuky_data/argm_vertices_stoplight_enriched_df.tsv")
 ```
 
+## Redesign of the edges data frame to enable directed graphs
+A post-hoc enhancement: Now the first column (source vertex in directed graphs) contains the vertex that appears earlier in the text than its counterpart vertex in the second column (target vertex in directed graphs). I will not save it under a different name since
+there is no need to preserve the original one where the order of vertices in the pair was random. 
+```{r}
+### Revision 2025-06-27 
+# I added code from 04_network_preprocessing02. This will make 
+vertices_df <- read_rds("kuky_data/argm_vertices_stoplight_enriched_df.rds") %>%
+  select(span_id, span_position_global,)
+edges_df <- read_rds("kuky_data/argm_edges_df.rds") %>% 
+  left_join(vertices_df, by = c("span_id" = "span_id")) %>% 
+  rename(first_span_position_global = span_position_global) %>% 
+  left_join(vertices_df, by = c("linked_span_id" = "span_id")) %>%
+  rename(second_span_position_global = span_position_global)
+sources <- edges_df %>% filter(first_span_position_global < second_span_position_global)
+targets <- edges_df %>% 
+  filter(first_span_position_global > second_span_position_global) %>% 
+  rename(span_id_new = linked_span_id, linked_span_id_new = span_id) %>%
+  rename_with(~ str_remove(.x, "_new")) %>% 
+  relocate(span_id) # the position indices still reflect the original column order
+  # no worry, they are to be deleted anyway
+edges_df <- bind_rows(sources, targets) %>% select(!c(contains("span_position_global")))
+write_rds(edges_df, "kuky_data/argm_edges.rds")
+write_tsv(edges_df, "kuky_data/argm_edges.tsv")
+```
+
+
 ## Creating the `igraph` objects
 
 Each document-owner pair will be represented by its own graph. Therefore
@@ -479,11 +504,11 @@ write_rds(vertices_list, "kuky_data/vertices_list.rds")
 ```
 
 ```{r}
-igraphs <- purrr::map2(
+igraphs_nondirected <- purrr::map2(
   .x = edges_list, 
   .y = vertices_list,
   ~ igraph::graph_from_data_frame(d = .x, vertices = .y, directed = FALSE))
-write_rds(igraphs, "kuky_data/igraphs.rds")
+#write_rds(igraphs, "kuky_data/igraphs_.rds")
 ```
 
 ### A small digression for future visualization
@@ -561,6 +586,16 @@ permute_start <- function(text_graph) {
 ```
 
 ```{r}
-igraphs_sorted <- igraphs %>% map(permute_start)
-write_rds(igraphs_sorted, "kuky_data/igraphs_sorted.rds")
+igraphs_nondirected_sorted <- igraphs_nondirected %>% map(permute_start)
+write_rds(igraphs_nondirected_sorted, "kuky_data/igraphs_nondirected_sorted.rds")
 ```
+
+```{r}
+igraphs_directed_sorted <- purrr::map2(
+  .x = edges_list, 
+  .y = vertices_list,
+  ~ igraph::graph_from_data_frame(d = .x, vertices = .y, directed = TRUE)) %>% 
+  map(permute_start)
+write_rds(igraphs_directed_sorted, "kuky_data/igraphs_directed_sorted.rds")
+```
+

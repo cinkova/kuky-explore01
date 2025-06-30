@@ -38,7 +38,7 @@ I have also introduced a `relevance_threshold`, that has a default at 0. If set 
 
 
 ```{r}
-igraphs <- read_rds("kuky_data/igraphs_sorted.rds") # read the original vertices and edges tables produced by scripts in previous files
+#igraphs_nondirected <- read_rds("kuky_data/igraphs_nondirected_sorted.rds") # read the original vertices and edges tables produced by scripts in previous files
 select_argum_vertices <- function(graph, relevance_threshold = 0) {
   V(graph)[span_label %in% c("Law", "Narrative","Conclusion", 
                                     "LegalIssue") & span_Relevant >= relevance_threshold]
@@ -64,7 +64,7 @@ add_relative_proximity <- function(graph){
   return(graph)
 }
 
-igraphs <- map(igraphs, add_relative_proximity)
+#igraphs <- map(igraphs, add_relative_proximity)
 ```
 
 
@@ -138,7 +138,7 @@ create_attrs_functions_list <- function(graph,
 "norm_closeness_unweighted" = function(graph, ...)
 {closeness(graph = graph, normalized = TRUE, weights = NA)},
 "norm_betweenness_unweighted" = function(graph, ...){
-  betweenness(graph = graph, normalized = TRUE, directed = FALSE, weights = NA)}, 
+  betweenness(graph = graph, normalized = TRUE, directed = directed, weights = NA)}, 
 "transitivity_local_unweighted" = function(graph, ...){
   transitivity(graph = graph, type = "local", isolates = "zero")},
 "transitivity_local_weighted" = function(graph, ...){
@@ -146,12 +146,12 @@ create_attrs_functions_list <- function(graph,
   #A. Barrat's formula
   "pagerank_weighted" = function(graph, ...){
     set.seed(422)
-    pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE)
+    pg <- page_rank(graph = graph, algo = "prpack", directed = directed)
     result <- pg$vector
     return(result)},
   "pagerank_unweighted" = function(graph, ...){
     set.seed(422)
-    pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE, weights = NA)
+    pg <- page_rank(graph = graph, algo = "prpack", directed = directed, weights = NA)
     result <- pg$vector
     return(result)},
 "eccentricity_weighted" = function(graph,...){
@@ -164,7 +164,7 @@ create_attrs_functions_list <- function(graph,
   closeness(graph = graph, normalized = TRUE, weights = relprox)}, 
 "norm_betweenness_weightedby_relproximity" = function(graph, ...) {
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
-  betweenness(graph = graph, directed = FALSE, normalized = TRUE, 
+  betweenness(graph = graph, directed = directed, normalized = TRUE, 
               weights = relprox)},
 "transitivity_local_weightedby_relproximity" = function(graph, ...) {
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
@@ -173,7 +173,7 @@ create_attrs_functions_list <- function(graph,
   "pagerank_weightedby_relproximity" = function(graph, ...) {
     set.seed(422)
    relprox <- edge_attr(graph = graph, name = "rel_proximity")
-   pg <- page_rank(graph = graph, algo = "prpack", directed = FALSE, 
+   pg <- page_rank(graph = graph, algo = "prpack", directed = directed, 
                    weights = relprox)
   result <- pg$vector
     return(result)},
@@ -300,14 +300,14 @@ create_attrs_functions_list <- function(graph,
                                 weights = relprox, resolution = 1)
   return(membership(communities))},
 "cluster_edge_betweenness_weighted" = function(graph, ...){
-  communities <- cluster_edge_betweenness(graph = graph, weights = NULL, directed = FALSE)
+  communities <- cluster_edge_betweenness(graph = graph, weights = NULL, directed = directed)
   return(membership(communities))},
 "cluster_edge_betweenness_unweighted" = function(graph, ...){
-  communities <- cluster_edge_betweenness(graph = graph, weights = NA, directed = FALSE)
+  communities <- cluster_edge_betweenness(graph = graph, weights = NA, directed = directed)
   return(membership(communities))},
 "cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
-  communities <- cluster_edge_betweenness(graph = graph, weights = relprox, directed = FALSE)
+  communities <- cluster_edge_betweenness(graph = graph, weights = relprox, directed = directed)
   return(membership(communities))}#,
 # "cluster_optimal_weighted" = function(graph, ...){
 #   communities <- cluster_optimal(graph = graph, weights = NULL)
@@ -321,7 +321,7 @@ create_attrs_functions_list <- function(graph,
 #   communities <- cluster_optimal(graph = graph, weights = relprox)
 #   return(membership(communities))}
 
-                                        )) {return(func_list)}
+                                        ), directed = FALSE) {return(func_list)}
 ```
 
 
@@ -352,7 +352,7 @@ return(graph)
 
 
 
-add_attrs_to_igraph <- function(graph) {
+add_attrs_to_igraph <- function(graph,...) {
  funclist_graph <- create_attrs_functions_list(graph)
  #print(funclist_graph)
  vidslist_graph <- create_vids_list(graph)
@@ -371,17 +371,12 @@ add_attrs_to_igraph <- function(graph) {
  return(graph)  
 }
 
-igraphs <- map(igraphs, ~ add_attrs_to_igraph(.x))
- igraphs[[1]] %>% vertex_attr_names() # worked fine
- igraphs[[1]] %>% vertex_attr("cluster_louvain_unweighted-argum_0")
+# igraphs <- map(igraphs, ~ add_attrs_to_igraph(.x))
+#  igraphs[[1]] %>% vertex_attr_names() # worked fine
+#  igraphs[[1]] %>% vertex_attr("cluster_louvain_unweighted-argum_0")
+ 
 ```
 
-
-## Community detection
-
-```{r}
-
-```
 
 
 ## Computation of Graph attributes
@@ -406,7 +401,7 @@ igraphs <- map(igraphs, ~ add_attrs_to_igraph(.x))
 
 
 # Function to create a list of graph-level attributes
-make_graph_attr_list <- function(graph) {
+make_graph_attr_list <- function(graph, directed = FALSE) {
   list(
     ### Edge density ###
     graph_edge_density = edge_density(
@@ -488,78 +483,78 @@ make_graph_attr_list <- function(graph) {
      isolates = "zero", type = "global", weights = NULL
    ),
    ### Graph diameter, weighted ###
-  graph_diameter_weighted = diameter(graph, directed = FALSE, 
+  graph_diameter_weighted = diameter(graph, directed = directed, 
                                        unconnected = TRUE), # returns the largest diameter  
   argum_diameter_weighted_0 = diameter(
     subgraph(graph, vids = select_argum_vertices(graph)), 
-    directed = FALSE, unconnected = TRUE
+    directed = directed, unconnected = TRUE
   ) , 
   argum_diameter_weighted_09 = diameter(
     subgraph(graph, vids = select_argum_vertices(graph, 
                                                  relevance_threshold = 0.9)), 
-    directed = FALSE, unconnected = TRUE
+    directed = directed, unconnected = TRUE
   ) , 
   conclusions_diameter_weighted_0 = diameter(
         subgraph(graph, vids = select_conclusions_vertices(graph)), 
-    directed = FALSE, unconnected = TRUE
+    directed = directed, unconnected = TRUE
   ),
   conclusions_diameter_weighted_09 = diameter(
     subgraph(graph, vids = select_conclusions_vertices(
       graph, relevance_threshold = 0.9)), 
-    directed = FALSE, unconnected = TRUE
+    directed = directed, unconnected = TRUE
   ) ,
   conclusions_diameter_unweighted_09 = diameter(
     subgraph(graph, vids = select_conclusions_vertices(
       graph, relevance_threshold = 0.9)), 
-    directed = FALSE, unconnected = TRUE, weights = NA
+    directed = directed, unconnected = TRUE, weights = NA
   ) ,
   ### Eigenvector centralization  ###
   # no weights argument available in this function. I have no idea whether it's weighted or not.
   graph_eigenvector_centralization = 
-    centr_eigen(graph, directed = FALSE, 
+    centr_eigen(graph, directed = directed, 
                 normalized = TRUE, scale = TRUE)$centralization,
   argum_eigenvector_centralization_0 = 
     centr_eigen(subgraph(graph, vids = select_argum_vertices(graph)), 
-                directed = FALSE, normalized = TRUE, scale = TRUE)$centralization,
+                directed = directed, normalized = TRUE, scale = TRUE)$centralization,
   argum_eigenvector_centralization_09 = 
     centr_eigen(subgraph(graph, 
                         vids = select_argum_vertices(graph, 
                                                  relevance_threshold = 0.9)), 
-                directed = FALSE, normalized = TRUE, scale = TRUE)$centralization,
+                directed = directed, normalized = TRUE, scale = TRUE)$centralization,
   conclusions_eigenvector_centralization_0 = 
     centr_eigen(subgraph(graph, vids = select_conclusions_vertices(graph)), 
-                directed = FALSE, normalized = TRUE, 
+                directed = directed, normalized = TRUE, 
                 scale = TRUE)$centralization,
   conclusions_eigenvector_centralization_09 = 
     centr_eigen(
       subgraph(graph, 
               vids = select_conclusions_vertices(graph, 
                                                  relevance_threshold = 0.9)), 
-                directed = FALSE, normalized = TRUE, 
+                directed = directed, normalized = TRUE, 
       scale = TRUE)$centralization,
   ### Theoretical max of eigenvector centralization
   graph_eigenvector_theoretical_max = centr_eigen(
-        graph, scale = TRUE, directed = FALSE, 
+        graph, scale = TRUE, directed = directed, 
         normalized = TRUE)$theoretical_max,
   
   argum_eigenvector_theoretical_max_0 = 
     centr_eigen(subgraph(graph, vids = select_argum_vertices(graph)), 
-                directed = FALSE, normalized = TRUE, scale = TRUE)$theoretical_max,
+                directed = directed, normalized = TRUE, scale = TRUE)$theoretical_max,
   argum_eigenvector_theoretical_max_09 = 
     centr_eigen(subgraph(graph, 
                         vids = select_argum_vertices(graph, 
                                                  relevance_threshold = 0.9)), 
-                directed = FALSE, normalized = TRUE, scale = TRUE)$theoretical_max,
+                directed = directed, normalized = TRUE, scale = TRUE)$theoretical_max,
   conclusions_eigenvector_theoretical_max_0 = 
     centr_eigen(subgraph(graph, vids = select_conclusions_vertices(graph)), 
-                directed = FALSE, normalized = TRUE, 
+                directed = directed, normalized = TRUE, 
                 scale = TRUE)$theoretical_max,
   conclusions_eigenvector_theoretical_max_09 = 
     centr_eigen(
       subgraph(graph, 
               vids = select_conclusions_vertices(graph, 
                                                  relevance_threshold = 0.9)), 
-                directed = FALSE, normalized = TRUE, 
+                directed = directed, normalized = TRUE, 
       scale = TRUE)$theoretical_max#,
   
   # end of list follows with closing parenthesis  
@@ -583,10 +578,377 @@ add_graph_attr_list <- function(graph) {
 }
 
 
-test <- igraphs # a simple igraph object not in a list
-test <- map(test, ~ add_graph_attr_list(.x))
-test[[1]] %>% vertex_attr_names()
 ```
+
+
+## Data processing pipeline
+### For non-directed graphs
+For the non-directed graphs, the functions can be used as they are. This is going to be different when I treat the graphs as directed. It is more than the `directed=TRUE/FALSE` argument: many functions in the `attrs_function` list must have the direction of edges set (e.g. in-degree, out-degree) and the columns will need to be named accordingly. 
+
+But this is still the easy setup with the non-directed graphs. 
+Read data, check for duplicate edges (these ought to be removed). In the igraphs data, no multiple edges were detected, so I won't invent any deduplication strategies.  
+
+```{r }
+read_rds("kuky_data/igraphs_nondirected_sorted.rds")   %>% 
+  map(~ any_multiple(.x)) %>% map_int(sum) %>% sum()
+```
+
+I have called all prepared functions to enrich the graph and its vertices with additional attributes computed by igraph. 
+I store the list of enriched igraph objects in a rds file. 
+```{r warning=FALSE}
+igraphs_nondirected_att_addition <- read_rds("kuky_data/igraphs_nondirected_sorted.rds") %>%
+   map(~ add_relative_proximity(.x)) %>% 
+  map(~ add_attrs_to_igraph(.x, directed = FALSE))     
+igraphs_nondirected_att_addition <- igraphs_nondirected_att_addition %>% map(~ add_graph_attr_list(.x))
+write_rds(igraphs_nondirected_att_addition, "kuky_data/igraphs_nondirected_added_attributes.rds")
+
+```
+
+I am going to create a data frame of all vertex attributes of all graphs and save them as a tsv file. 
+```{r}
+igraph_names <- names(igraphs_nondirected_att_addition) 
+vertex_attributes_nondirected_igraphs <- map2(.x = igraph_names,
+                                              .y = igraphs_nondirected_att_addition,
+                                              .f = ~ tibble(.x, !!!as_data_frame(.y, what = "vertices")), 
+                                              .progress = "nondirected_vertex_attributes_df"
+                                              ) %>% 
+  map_df(~ bind_rows(.x))
+write_tsv(vertex_attributes_nondirected_igraphs, "kuky_data/OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv")
+
+```
+
+
+Now I am going to create a data frame of the igraph-computed statistics relating to each graph as a whole (graph attributes). 
+```{r}
+igraph_names <- names(igraphs_nondirected_att_addition) 
+doc_attributes_nondirected_igraphs <- map2(.x = igraph_names, 
+                                           .y = igraphs_nondirected_att_addition,
+                                           .f = ~ tibble(.x, !!!graph_attr(.y)),
+                                           .progress = TRUE
+                                           )
+# the three exclamation marks unfolded the graph_attributes into columns
+doc_attributes_nondirected_igraphs %<>% map_df(~bind_rows(.x))
+write_tsv(doc_attributes_nondirected_igraphs, "kuky_data/OUPUT_DATA_doc_attributes_nondirected_igraphs.tsv")
+
+```
+
+
+### For directed graphs
+
+I will need to revisit the attribute list for vertices and maybe even for the entire graph. 
+I will rename the `create_attrs_functions_list` function to `create_directed_attrs_functions_list`.
+
+
+```{r}
+create_directed_attrs_functions_list <- function(graph, directed = TRUE,  
+                                        func_list = list(
+#degree does not take the `directed` argument, treats it with `mode`
+"directed_norm_indegree" = function(graph, ...)
+  {degree(graph = graph, loops = FALSE, normalized = TRUE, mode = "in")},
+"directed_norm_outdegree" = function(graph)
+  {degree(graph = graph, loops = FALSE, normalized = TRUE, mode = "out")},
+"directed_abs_indegree" = function(graph, ...) 
+  {degree(graph = graph, loops = FALSE, normalized = FALSE, mode = "in")}, 
+"directed_abs_outdegree" = function(graph, ...) 
+  {degree(graph = graph, loops = FALSE, normalized = FALSE, mode = "out")}, 
+# closeness does not take directed 
+"directed_norm_in_closeness_weighted" = function(graph)
+  {closeness(graph = graph, normalized = TRUE, mode = "in")},
+"directed_norm_out_closeness_weighted" = function(graph)
+  {closeness(graph = graph, normalized = TRUE, mode = "out")},
+# betweenness takes directed, but it does not divide in in and out! See help. 
+"directed_norm_betweenness_weighted" = function(graph, ...)
+  {betweenness(graph = graph, normalized = TRUE, directed = directed)},
+"directed_norm_in_closeness_unweighted" = function(graph, ...)
+{closeness(graph = graph, normalized = TRUE, weights = NA, mode = "in")},
+"directed_norm_out_closeness_unweighted" = function(graph, ...)
+{closeness(graph = graph, normalized = TRUE, weights = NA, mode = "out")},
+"directed_norm_betweenness_unweighted" = function(graph, ...){
+  betweenness(graph = graph, normalized = TRUE, directed = directed, weights = NA)}, 
+# transitivity does not consider edge directions at all
+# page_rank takes directed, but it does not divide in in and out. See help. 
+  "directed_pagerank_weighted" = function(graph, ...){
+    set.seed(422)
+    pg <- page_rank(graph = graph, algo = "prpack", directed = directed)
+    result <- pg$vector
+    return(result)},
+  "directed_pagerank_unweighted" = function(graph, ...){
+    set.seed(422)
+    pg <- page_rank(graph = graph, algo = "prpack", directed = directed, weights = NA)
+    result <- pg$vector
+    return(result)},
+# eccentricity does not take directed but distinguishes between in and out. 
+"eccentricity_in_weighted" = function(graph,...){
+  eccentricity(graph, weights = NULL, mode = "in")},
+"eccentricity_in_unweighted" = function(graph,...){
+  eccentricity(graph, weights = NA, mode = "in")},
+"eccentricity_out_weighted" = function(graph,...){
+  eccentricity(graph, weights = NULL, mode = "out")},
+"eccentricity_out_unweighted" = function(graph,...){
+  eccentricity(graph, weights = NA, mode = "out")},
+# weighted with relative proximity of edges
+"norm_closeness_in_weightedby_relproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity" )
+  closeness(graph = graph, normalized = TRUE, weights = relprox, mode = "in")}, 
+"norm_closeness_out_weightedby_relproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  closeness(graph = graph, normalized = TRUE, weights = relprox, mode = "out")}, 
+"norm_betweenness_weightedby_relproximity" = function(graph, ...) {
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  betweenness(graph = graph, directed = directed, normalized = TRUE, 
+              weights = relprox)},
+# "transitivity_local_weightedby_relproximity" = function(graph, ...) {
+#   relprox <- edge_attr(graph = graph, name = "rel_proximity")
+#   transitivity(graph = graph, type = "weighted", isolates = "zero",
+#                weights = relprox)},
+  "pagerank_weightedby_relproximity" = function(graph, ...) {
+    set.seed(422)
+   relprox <- edge_attr(graph = graph, name = "rel_proximity")
+   pg <- page_rank(graph = graph, algo = "prpack", directed = directed, 
+                   weights = relprox)
+  result <- pg$vector
+    return(result)},
+  "eccentricity_in_weighted" = function(graph,...){
+    relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  eccentricity(graph = graph, weights = relprox, mode = "in")},
+ "eccentricity_out_weighted" = function(graph,...){
+    relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  eccentricity(graph = graph, weights = relprox, mode = "out")},
+ #"coreness" = function(graph, ...){coreness(graph = graph, mode = "all")},
+ "coreness_in" = function(graph, ...){coreness(graph = graph, mode = "in")},
+ "coreness_out" = function(graph, ...){coreness(graph = graph, mode = "out")}, 
+### Community detection 
+# Functions cluster_louvain, cluster_walktrap do not take directions into account or 
+# do not work with directed graphs at all.  
+ "directed_cluster_infomap_weighted" = function(graph, ...){
+    set.seed(422)
+    communities <- cluster_infomap(graph = graph, e.weights = NULL, nb.trials = 10, modularity = TRUE)
+    return(membership(communities))},
+"directed_cluster_infomap_unweighted" = function(graph, ...){
+    set.seed(422)
+    communities <- cluster_infomap(graph = graph, e.weights = NA, nb.trials = 10, modularity = TRUE)
+    return(membership(communities))},
+"directed_cluster_infomap_weightedbyrelproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+    set.seed(422)
+    communities <- cluster_infomap(graph = graph, e.weights = relprox, nb.trials = 10, modularity = TRUE)
+    return(membership(communities))},
+"directed_cluster_in_label_prop_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = NULL, mode = "in")
+  return(membership(communities))},
+"directed_cluster_out_label_prop_weighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = NULL, mode = "out")
+  return(membership(communities))},
+"directed_cluster_in_label_unweighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = NA, mode = "in")
+  return(membership(communities))},
+"directed_cluster_out_label_unweighted" = function(graph, ...){
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = NA, mode = "out")
+  return(membership(communities))},
+"directed_cluster_in_label_prop_weightedbyrelproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = relprox, mode = "in")
+  return(membership(communities))},
+"directed_cluster_out_label_prop_weightedbyrelproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  set.seed(422)
+  communities <- cluster_label_prop(graph = graph, weights = relprox, mode = "out")
+  return(membership(communities))},
+# cluster_fast_greedy does not work with directed graphs
+# cluster_leiden does not work with directed graphs
+# cluster_edge_betweenness works with directed graphs but 
+# does not compute the values separately for in and out. 
+"cluster_edge_betweenness_weighted" = function(graph, ...){
+  communities <- cluster_edge_betweenness(graph = graph, weights = NULL, directed = directed)
+  return(membership(communities))},
+"cluster_edge_betweenness_unweighted" = function(graph, ...){
+  communities <- cluster_edge_betweenness(graph = graph, weights = NA, directed = directed)
+  return(membership(communities))},
+"cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
+  relprox <- edge_attr(graph = graph, name = "rel_proximity")
+  communities <- cluster_edge_betweenness(graph = graph, weights = relprox, directed = directed)
+  return(membership(communities))}#,
+#cluster_optimal made the comp freeze with undirected several time, 
+# so I won't run it with directed either. 
+                                        )) {return(func_list)}
+```
+
+I will also have to adapt the function that adds attributes on the level of the entire graph. 
+
+
+```{r}
+# Function to create a list of graph-level attributes
+make_directed_graph_attr_list <- function(graph, directed = TRUE) {
+  list(
+    ### Edge density does not treat directed graphs differently###
+    ### Edge count does not treat directed graphs differently ###
+    ### Vertex count does not treat directed graphs differently ###
+    ### Transitivity (global, weighted) does not treat directed graphs differently ###
+   ### Graph diameter, weighted ###
+  directed_graph_diameter_weighted = diameter(graph, directed = directed, 
+                                       unconnected = TRUE), # returns the largest diameter  
+  directed_argum_diameter_weighted_0 = diameter(
+    subgraph(graph, vids = select_argum_vertices(graph)), 
+    directed = directed, unconnected = TRUE
+  ) , 
+  directed_argum_diameter_weighted_09 = diameter(
+    subgraph(graph, vids = select_argum_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+    directed = directed, unconnected = TRUE
+  ) , 
+  directed_conclusions_diameter_weighted_0 = diameter(
+        subgraph(graph, vids = select_conclusions_vertices(graph)), 
+    directed = directed, unconnected = TRUE
+  ),
+  directed_conclusions_diameter_weighted_09 = diameter(
+    subgraph(graph, vids = select_conclusions_vertices(
+      graph, relevance_threshold = 0.9)), 
+    directed = directed, unconnected = TRUE
+  ) ,
+  directed_conclusions_diameter_unweighted_09 = diameter(
+    subgraph(graph, vids = select_conclusions_vertices(
+      graph, relevance_threshold = 0.9)), 
+    directed = directed, unconnected = TRUE, weights = NA
+  ) ,
+  ### Eigenvector centralization  ###
+  # no weights argument available in this function. I have no idea whether it's weighted or not.
+  directed_graph_eigenvector_centralization = 
+    centr_eigen(graph, directed = directed, 
+                normalized = TRUE, scale = TRUE)$centralization,
+  directed_argum_eigenvector_centralization_0 = 
+    centr_eigen(subgraph(graph, vids = select_argum_vertices(graph)), 
+                directed = directed, normalized = TRUE, scale = TRUE)$centralization,
+  directed_argum_eigenvector_centralization_09 = 
+    centr_eigen(subgraph(graph, 
+                        vids = select_argum_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = directed, normalized = TRUE, scale = TRUE)$centralization,
+  directed_conclusions_eigenvector_centralization_0 = 
+    centr_eigen(subgraph(graph, vids = select_conclusions_vertices(graph)), 
+                directed = directed, normalized = TRUE, 
+                scale = TRUE)$centralization,
+  directed_conclusions_eigenvector_centralization_09 = 
+    centr_eigen(
+      subgraph(graph, 
+              vids = select_conclusions_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = directed, normalized = TRUE, 
+      scale = TRUE)$centralization,
+  ### Theoretical max of eigenvector centralization
+  directed_graph_eigenvector_theoretical_max = centr_eigen(
+        graph, scale = TRUE, directed = directed, 
+        normalized = TRUE)$theoretical_max,
+  
+  directed_argum_eigenvector_theoretical_max_0 = 
+    centr_eigen(subgraph(graph, vids = select_argum_vertices(graph)), 
+                directed = directed, normalized = TRUE, scale = TRUE)$theoretical_max,
+  directed_argum_eigenvector_theoretical_max_09 = 
+    centr_eigen(subgraph(graph, 
+                        vids = select_argum_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = directed, normalized = TRUE, scale = TRUE)$theoretical_max,
+  directed_conclusions_eigenvector_theoretical_max_0 = 
+    centr_eigen(subgraph(graph, vids = select_conclusions_vertices(graph)), 
+                directed = directed, normalized = TRUE, 
+                scale = TRUE)$theoretical_max,
+  directed_conclusions_eigenvector_theoretical_max_09 = 
+    centr_eigen(
+      subgraph(graph, 
+              vids = select_conclusions_vertices(graph, 
+                                                 relevance_threshold = 0.9)), 
+                directed = directed, normalized = TRUE, 
+      scale = TRUE)$theoretical_max#,
+  
+  # end of list follows with closing parenthesis  
+  ) # end of list  
+# 
+
+}
+
+# Function to add graph-level attributes to the graph
+add_directed_graph_attr_list <- function(graph, directed = TRUE) {
+  attr_list <- make_directed_graph_attr_list(graph, directed = directed)
+  
+  # Use purrr::iwalk to iterate over the list and set each attribute
+  iwalk(attr_list, function(value, name) {
+    graph <<- set_graph_attr(graph, name = name, value = value)
+  })
+  
+  return(graph)
+}
+```
+
+And here I run the adapted functions on the list of directed graphs to obtain graph statistics for directed graphs on all documents. 
+
+```{r}
+add_directed_attrs_to_igraph <- function(graph,directed = TRUE,...) {
+ funclist_graph <- create_directed_attrs_functions_list(graph, directed = TRUE)
+ #print(funclist_graph)
+ vidslist_graph <- create_vids_list(graph)
+ #print(vidslist_graph)
+
+  iwalk(funclist_graph, .f = function(value, name, ...) {
+     for (i in seq_along(vidslist_graph)) {
+  vids <- vidslist_graph[[i]]
+  graph <<- add_subgraph_vertattr(graph = graph,
+                                 .fun = value,
+                                 new_attr_name = name,
+                                 suffix = names(vidslist_graph)[i])
+  #print(vertex_attr_names(graph))
+     }
+} )
+ return(graph)  
+}
+```
+
+
+I store the list of the enriched directed igraph objects in a rds file. 
+```{r warning=FALSE}
+igraphs_directed_att_addition <- read_rds("kuky_data/igraphs_directed_sorted.rds") %>%
+   map(~ add_relative_proximity(.x)) %>% 
+  map(~ add_directed_attrs_to_igraph(.x, directed = TRUE))     
+igraphs_directed_att_addition <- igraphs_directed_att_addition %>% 
+  map(~ add_directed_graph_attr_list(.x, directed = TRUE))
+write_rds(igraphs_directed_att_addition, "kuky_data/igraphs_directed_added_attributes.rds")
+
+```
+I am going to create a data frame of all vertex attributes of all directed graphs and save them as a tsv file. 
+```{r}
+igraph_names <- names(igraphs_directed_att_addition) 
+vertex_attributes_directed_igraphs <- map2(.x = igraph_names,
+                                              .y = igraphs_directed_att_addition,
+                                              .f = ~ tibble(.x, !!!as_data_frame(.y, what = "vertices")), 
+                                              .progress = "directed_vertex_attributes_df"
+                                              ) %>% 
+  map_df(~ bind_rows(.x))
+write_tsv(vertex_attributes_directed_igraphs, "kuky_data/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv")
+
+```
+
+
+Now I am going to create a data frame of the igraph-computed statistics relating to each graph as a whole (graph attributes). 
+```{r}
+igraph_names <- names(igraphs_directed_att_addition) 
+doc_attributes_directed_igraphs <- map2(.x = igraph_names, 
+                                           .y = igraphs_directed_att_addition,
+                                           .f = ~ tibble(.x, !!!graph_attr(.y)),
+                                           .progress = TRUE
+                                           )
+# the three exclamation marks unfolded the graph_attributes into columns
+doc_attributes_directed_igraphs %<>% map_df(~ bind_rows(.x))
+write_tsv(doc_attributes_directed_igraphs, "kuky_data/OUPUT_DATA_doc_attributes_directed_igraphs.tsv")
+
+```
+
+
+
+
+
 
 ```{r}
 layout_grid <- layout_on_grid(.x, width = 3)
@@ -597,103 +959,5 @@ label_colors <- c(
 "Law" = "navyblue",
 "LegalIssue" = "purple"
 )
-map(test, ~ graph_attr(.x, "argum_transitivity_global_09")) %>% 
-  map(function(x) x > 0.7)
-keep(test, ~ graph_attr(.x, "argum_transitivity_global_09") > 0.7) %>%
-  map(~ induced_subgraph(.x, select_argum_vertices(.x, relevance_threshold = 0.9))) %>% 
-  map(~ {V(.x)$color <- label_colors[V(.x)$span_label]
-  .x}) %>% 
-  map(~ plot(.x,
-             vertex.label.color = V(.x)$color,
-             vertex.label = V(.x)$span_label, 
-             edge.curved = TRUE,
-             #vertex.label = V(.x)$span_start,
-             vertex.size = 0, 
-             layout = layout_with_fr))
 ```
-```{r}
-library(stringi)
-library(purrr)
-
-# Filter and process graphs
-filtered_graphs <- test %>%
-  keep(~ graph_attr(.x, "argum_transitivity_global_09") > 0.8) %>%
-  map(~ induced_subgraph(.x, select_argum_vertices(.x, relevance_threshold = 0.9))) %>%
-  map(~ {V(.x)$color <- label_colors[V(.x)$span_label]; .x})
-
-names(filtered_graphs)
-
-# Save each plot using the list names
-iwalk(filtered_graphs, ~ {
-  file_name <- paste0("graph_plot_", .y, ".png")
-  png(file_name, width = 800, height = 800)
-  plot(.x,
-       vertex.label.color = V(.x)$color,
-       vertex.label = V(.x)$span_label,
-       edge.curved = TRUE,
-       vertex.size = 0,
-       layout = layout_on_grid(.x, width = 3))
-  dev.off()
-})
-
-
-```
-
-
-
-
-```{r}
-# this function works nicely, so I will keep it as a referential down-to-earth version of my functions. 
-# add_degree <- function(graph, vids = V(graph), 
-#                        loops = FALSE, normalized = TRUE, 
-#                        new_attr_name, ...){#
-#   # name suffix for my experiment should be one of "_argum_0", "_argum_09", 
-#   # "conclusions_0", "conclusions_09". 
-#   # Three dots eat any arguments allowed by the `igraph` function inside. 
-#   subg <- induced_subgraph(graph, vids = vids)
-#   degrees <- degree(subg, loops = loops, normalized = normalized)
-#   #vertices <- vertex_attr(subg)
-#   graph <- set_vertex_attr(graph, name = new_attr_name, value = NA)
-#   graph <- set_vertex_attr(graph, name = new_attr_name, 
-#                            value = degrees, index = names(degrees))
-# 
-# return(graph)
-# #graph <<- set_vertex_attr(graph, name = "")
-# }
-# test <- igraphs[[1]]
-
-
-
-# mylist <- create_vids_list(test)
-# mylist
-# I don't need the loop since I can do it with iwalk, see below
-# for (i in seq_along(mylist)) {
-# #  i <- 1
-#   test <- add_degree(graph = test, 
-#                      vids = mylist[[i]], 
-#                      new_attr_name = names(mylist)[i])
-# }
-# test
-# #my <- map(my, ~ add_degree(.x, vids = select_argum_vertices(.x, relevance_threshold = 0),
-# #                       new_attr_name = "normdegree_argum_0"))
-# test %>% vertex_attr_names()
-
-## This code adds normalized degree to all settings that I can list in the list above. This is not a function yet but it overwrites the original variable OK.  
-
-# iwalk(mylist, .f = function(value, name){ # value, name must come in this order with iwalk. Just memorize it. Don't ask why. 
-#   test <<- add_degree(graph = test, loops = FALSE, normalized = TRUE, new_attr_name = paste0("normdegree_",name), vids = value )})
-# 
-# test %>% vertex_attr_names()
-
-
-```
-
-
-
-
-
-
-
-
-
 

@@ -689,22 +689,22 @@ create_directed_attrs_functions_list <- function(graph, directed = TRUE,
     result <- pg$vector
     return(result)},
 # eccentricity does not take directed but distinguishes between in and out. 
-"eccentricity_in_weighted" = function(graph,...){
+"directed_eccentricity_in_weighted" = function(graph,...){
   eccentricity(graph, weights = NULL, mode = "in")},
-"eccentricity_in_unweighted" = function(graph,...){
+"directed_eccentricity_in_unweighted" = function(graph,...){
   eccentricity(graph, weights = NA, mode = "in")},
-"eccentricity_out_weighted" = function(graph,...){
+"directed_eccentricity_out_weighted" = function(graph,...){
   eccentricity(graph, weights = NULL, mode = "out")},
-"eccentricity_out_unweighted" = function(graph,...){
+"directed_eccentricity_out_unweighted" = function(graph,...){
   eccentricity(graph, weights = NA, mode = "out")},
 # weighted with relative proximity of edges
-"norm_closeness_in_weightedby_relproximity" = function(graph, ...){
+"directed_norm_closeness_in_weightedby_relproximity" = function(graph, ...){
   relprox <- edge_attr(graph = graph, name = "rel_proximity" )
   closeness(graph = graph, normalized = TRUE, weights = relprox, mode = "in")}, 
-"norm_closeness_out_weightedby_relproximity" = function(graph, ...){
+"directed_norm_closeness_out_weightedby_relproximity" = function(graph, ...){
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
   closeness(graph = graph, normalized = TRUE, weights = relprox, mode = "out")}, 
-"norm_betweenness_weightedby_relproximity" = function(graph, ...) {
+"directed_norm_betweenness_weightedby_relproximity" = function(graph, ...) {
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
   betweenness(graph = graph, directed = directed, normalized = TRUE, 
               weights = relprox)},
@@ -712,22 +712,22 @@ create_directed_attrs_functions_list <- function(graph, directed = TRUE,
 #   relprox <- edge_attr(graph = graph, name = "rel_proximity")
 #   transitivity(graph = graph, type = "weighted", isolates = "zero",
 #                weights = relprox)},
-  "pagerank_weightedby_relproximity" = function(graph, ...) {
+  "directed_pagerank_weightedby_relproximity" = function(graph, ...) {
     set.seed(422)
    relprox <- edge_attr(graph = graph, name = "rel_proximity")
    pg <- page_rank(graph = graph, algo = "prpack", directed = directed, 
                    weights = relprox)
   result <- pg$vector
     return(result)},
-  "eccentricity_in_weighted" = function(graph,...){
+  "directed_eccentricity_in_weighted" = function(graph,...){
     relprox <- edge_attr(graph = graph, name = "rel_proximity")
   eccentricity(graph = graph, weights = relprox, mode = "in")},
- "eccentricity_out_weighted" = function(graph,...){
+ "directed_eccentricity_out_weighted" = function(graph,...){
     relprox <- edge_attr(graph = graph, name = "rel_proximity")
   eccentricity(graph = graph, weights = relprox, mode = "out")},
  #"coreness" = function(graph, ...){coreness(graph = graph, mode = "all")},
- "coreness_in" = function(graph, ...){coreness(graph = graph, mode = "in")},
- "coreness_out" = function(graph, ...){coreness(graph = graph, mode = "out")}, 
+ "directed_coreness_in" = function(graph, ...){coreness(graph = graph, mode = "in")},
+ "directed_coreness_out" = function(graph, ...){coreness(graph = graph, mode = "out")}, 
 ### Community detection 
 # Functions cluster_louvain, cluster_walktrap do not take directions into account or 
 # do not work with directed graphs at all.  
@@ -774,13 +774,13 @@ create_directed_attrs_functions_list <- function(graph, directed = TRUE,
 # cluster_leiden does not work with directed graphs
 # cluster_edge_betweenness works with directed graphs but 
 # does not compute the values separately for in and out. 
-"cluster_edge_betweenness_weighted" = function(graph, ...){
+"directed_cluster_edge_betweenness_weighted" = function(graph, ...){
   communities <- cluster_edge_betweenness(graph = graph, weights = NULL, directed = directed)
   return(membership(communities))},
-"cluster_edge_betweenness_unweighted" = function(graph, ...){
+"directed_cluster_edge_betweenness_unweighted" = function(graph, ...){
   communities <- cluster_edge_betweenness(graph = graph, weights = NA, directed = directed)
   return(membership(communities))},
-"cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
+"directed_cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
   communities <- cluster_edge_betweenness(graph = graph, weights = relprox, directed = directed)
   return(membership(communities))}#,

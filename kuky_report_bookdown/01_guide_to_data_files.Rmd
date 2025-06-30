@@ -200,8 +200,34 @@ are final output files with igraph-computed attributes on the level of individua
 ### Dataset OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv
 The input was the list of igraph objects, all read in as directed. The `directed` argument is important, since many functions give different results for either or do not work with one at all.
 Another parameter in my case was the subsets of the graph (possible combinations of `argum` vs. `conclusions` vs. entire graph, relevance threshold). 
+I used two alternating weights setups: the text proportion covered by the two vertices on the one hand and their relative proximity on the other hand. The relative proximity is 1 - their relative distance. Their relative distance is the difference between the relative position of the relative start position of the later occurring vertex and the relative end position of the earlier occurring vertex.  
 
+#### Degree
+Combinations of in, out, normalized, non-normalized.
 
+#### Closeness
+Combinations of weighted by either weighting variable or unweighted, in, out, but always normalized.
+
+#### Betweenness
+Combinations of weighted by either weighting variable, or unweighted,  always normalized, always `directed = TRUE`.
+
+#### Page Rank
+Combination of weighted by either weighting variable or unweighted, always directed. I chose the algorithm `prpack`. It was not a conscious choice: it was either default, or the script did not work with the other algorithm, which was called `arpack`.
+
+#### Eccentricity
+Combination of weighted by either weighting variable or unweighted, in, out.
+
+#### Coreness
+Just in and out.
+
+#### Cluster infomap
+Stochastic community detection method, `set.seed(422)`, combinations of either weighting variable or unweighted . The documentation of the function says that directions of edges are taken into account. It's implicit, no argument to set.  
+
+#### Cluster `label_prop`
+Stochastic community detection method, the same seed. Combinations of either weighting variable or unweighted and in vs. out. 
+
+#### Cluster Edge Betweenness
+Deterministic community detection method. Combinations of either weighting variable or unweighted, all with `directed = TRUE`.
 
 ### Dataset OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv
 

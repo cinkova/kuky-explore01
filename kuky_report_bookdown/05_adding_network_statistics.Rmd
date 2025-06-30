@@ -1,4 +1,4 @@
-# Adding Network-related statistics to the data
+# Adding Network-related statistics to the data {#chapter:network-stats}
 
 ## About the input file
 In this chapter, I will work with the `igraph` objects of document-owner pairs (some documents were annotated by several annotators in parallel and I treat each as a separate document; hence most documents are uniquely identified with their `doc_id`, but to uniquely identify a document with multiple annotation one needs the  `doc_id` and `doc_owner` combination. I have added a special column called `metadoc_docname_owner`, which is a concatenation of both in the vertices table. The same column was called `doc_owner` in the edges table and remains among the edge attributes).
@@ -600,7 +600,7 @@ igraphs_nondirected_att_addition <- read_rds("kuky_data/igraphs_nondirected_sort
    map(~ add_relative_proximity(.x)) %>% 
   map(~ add_attrs_to_igraph(.x, directed = FALSE))     
 igraphs_nondirected_att_addition <- igraphs_nondirected_att_addition %>% map(~ add_graph_attr_list(.x))
-write_rds(igraphs_nondirected_att_addition, "kuky_data/igraphs_nondirected_added_attributes.rds")
+write_rds(igraphs_nondirected_att_addition, "output_files/igraphs_nondirected_added_attributes.rds")
 
 ```
 
@@ -613,7 +613,7 @@ vertex_attributes_nondirected_igraphs <- map2(.x = igraph_names,
                                               .progress = "nondirected_vertex_attributes_df"
                                               ) %>% 
   map_df(~ bind_rows(.x))
-write_tsv(vertex_attributes_nondirected_igraphs, "kuky_data/OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv")
+write_tsv(vertex_attributes_nondirected_igraphs, "output_files/OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv")
 
 ```
 
@@ -628,8 +628,19 @@ doc_attributes_nondirected_igraphs <- map2(.x = igraph_names,
                                            )
 # the three exclamation marks unfolded the graph_attributes into columns
 doc_attributes_nondirected_igraphs %<>% map_df(~bind_rows(.x))
-write_tsv(doc_attributes_nondirected_igraphs, "kuky_data/OUPUT_DATA_doc_attributes_nondirected_igraphs.tsv")
+write_tsv(doc_attributes_nondirected_igraphs, "output_files/OUPUT_DATA_doc_attributes_nondirected_igraphs.tsv")
 
+```
+
+```{r}
+igraph_names <- names(igraphs_nondirected_att_addition) 
+edges_attributes_nondirected_igraphs <- map2(.x = igraph_names,
+                                              .y = igraphs_nondirected_att_addition,
+                                              .f = ~ tibble(.x, !!!as_data_frame(.y, what = "edges")), 
+                                              .progress = "edges_attributes_df"
+                                              ) %>% 
+  map_df(~ bind_rows(.x))
+write_tsv(vertex_attributes_nondirected_igraphs, "output_files/OUTPUT_DATA_edge_attributes_igraphs.tsv")
 ```
 
 
@@ -886,7 +897,7 @@ add_directed_graph_attr_list <- function(graph, directed = TRUE) {
 And here I run the adapted functions on the list of directed graphs to obtain graph statistics for directed graphs on all documents. 
 
 ```{r}
-add_directed_attrs_to_igraph <- function(graph,directed = TRUE,...) {
+add_directed_attrs_to_igraph <- function(graph,directed = TRUE, ...) {
  funclist_graph <- create_directed_attrs_functions_list(graph, directed = TRUE)
  #print(funclist_graph)
  vidslist_graph <- create_vids_list(graph)
@@ -914,7 +925,7 @@ igraphs_directed_att_addition <- read_rds("kuky_data/igraphs_directed_sorted.rds
   map(~ add_directed_attrs_to_igraph(.x, directed = TRUE))     
 igraphs_directed_att_addition <- igraphs_directed_att_addition %>% 
   map(~ add_directed_graph_attr_list(.x, directed = TRUE))
-write_rds(igraphs_directed_att_addition, "kuky_data/igraphs_directed_added_attributes.rds")
+write_rds(igraphs_directed_att_addition, "output_files/igraphs_directed_added_attributes.rds")
 
 ```
 I am going to create a data frame of all vertex attributes of all directed graphs and save them as a tsv file. 
@@ -926,7 +937,7 @@ vertex_attributes_directed_igraphs <- map2(.x = igraph_names,
                                               .progress = "directed_vertex_attributes_df"
                                               ) %>% 
   map_df(~ bind_rows(.x))
-write_tsv(vertex_attributes_directed_igraphs, "kuky_data/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv")
+write_tsv(vertex_attributes_directed_igraphs, "output_files/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv")
 
 ```
 
@@ -941,23 +952,11 @@ doc_attributes_directed_igraphs <- map2(.x = igraph_names,
                                            )
 # the three exclamation marks unfolded the graph_attributes into columns
 doc_attributes_directed_igraphs %<>% map_df(~ bind_rows(.x))
-write_tsv(doc_attributes_directed_igraphs, "kuky_data/OUPUT_DATA_doc_attributes_directed_igraphs.tsv")
+write_tsv(doc_attributes_directed_igraphs, "output_files/OUPUT_DATA_doc_attributes_directed_igraphs.tsv")
 
 ```
 
+The edge data frame remains the same, no matter whether the graphs are directed or not, so I won't generate it again for directed graphs. 
 
 
-
-
-
-```{r}
-layout_grid <- layout_on_grid(.x, width = 3)
-layout_with_fr <- layout_with_fr()
-label_colors <- c(
-"Conclusion" = "tomato",
-"Narrative" = "darkgreen",
-"Law" = "navyblue",
-"LegalIssue" = "purple"
-)
-```
 

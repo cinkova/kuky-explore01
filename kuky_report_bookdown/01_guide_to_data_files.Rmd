@@ -209,7 +209,7 @@ Combinations of in, out, normalized, non-normalized.
 Combinations of weighted by either weighting variable or unweighted, in, out, but always normalized.
 
 #### Betweenness
-Combinations of weighted by either weighting variable, or unweighted,  always normalized, always `directed = TRUE`.
+Combinations of weighted by either weighting variable, or unweighted and always normalized, always `directed = TRUE`.
 
 #### Page Rank
 Combination of weighted by either weighting variable or unweighted, always directed. I chose the algorithm `prpack`. It was not a conscious choice: it was either default, or the script did not work with the other algorithm, which was called `arpack`.
@@ -227,14 +227,76 @@ Stochastic community detection method, `set.seed(422)`, combinations of either w
 Stochastic community detection method, the same seed. Combinations of either weighting variable or unweighted and in vs. out. 
 
 #### Cluster Edge Betweenness
-Deterministic community detection method. Combinations of either weighting variable or unweighted, all with `directed = TRUE`.
+Deterministic community detection method. Combinations of either weighting variable or unweighted, all with `directed = FALSE`.
+
 
 ### Dataset OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv
+#### Degree
+Combinations of normalized vs. absolute, weighted by either weighting variable or unweighted. 
+
+#### Closeness
+Always normalized, weighted by either weighting variable or unweighted. 
+
+#### Betweenness
+Options of weighted by either weighting variable, or unweighted and always normalized, always `directed = TRUE`.
+
+#### Page Rank
+Options weighted by either weighting variable or unweighted, computed with algorithm `prpack`, which was random choice with the other option `arpack`. 
+
+#### Eccentricity
+Options weighted by either weighting variable or unweighted, always normalized. 
+
+#### Coreness
+This has just the `mode` option, so `in` and `out`. 
+
+
+#### Cluster infomap
+Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted, other arguments at default values (`nb.trials = 10, modularity = TRUE`).
+
+#### Cluster label prop
+Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted , other arguments at default values.
+
+#### Cluster edge betweennes
+All weight options, `directed = FALSE`. 
+
+
 
 ### Dataset OUTPUT_DATA_doc_attributes_directed_igraphs.tsv
+#### Graph diameter
+All weights options, `unconnected = TRUE`
+
+#### Eigenvector centralization (centralization and theoretical max)
+All weights options
+
+### Dataset OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv
+This dataset contains the same statistics as the dataset `OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv` (with `mode = all` and `directed = FALSE` whenever relevant). Moreover, it contains some statistics that are specific to non-directed graphs. 
+
+#### Transitivity (local)
+Options of weighted by either weighting variable or unweighted, always with `isolates = "zero"` (i.e. unconnected nodes are counted to the total number of nodes)
+
+#### Cluster Louvain
+Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted.
+
+#### Cluster walktrap
+Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted, other arguments at default values (`steps = 4`, `merges = FALSE`, `modularity = TRUE`).
+
+#### Cluster fast greedy
+Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted , other arguments at default values.
+
+#### Cluster Leiden
+Combination of weights options and resolution options at 0.1, 0.5, and 1.0; always  `set.seed(422)`, `objective_function = "CMP"`, other arguments at their default values. 
 
 ### Dataset OUTPUT_DATA_doc_attributes_nondirected_igraphs.tsv
+Some attributes do not consider the edge directions, so I have only computed them for the non-directed graphs and hence they are not listed with the attributes of the directed igraphs objects. 
+
+#### Edge density
+All weights options.
+
+#### Edge count, Vertex count
+self-explaining
+
 
 ### Dataset OUTPUT_DATA_edge_attributes_igraphs.tsv
 
+See \@ref(section:argm_edges).
 

@@ -92,17 +92,6 @@ This function may be clumsy, but it allows me to:
 
 ```{r}
 
-
-# create_vids_list <- function(graph ){
-#   list("argum_0" = select_argum_vertices(graph),
-#        "argum_09" = select_argum_vertices(graph, relevance_threshold = 0.9),
-#        "conclusions_0" = select_conclusions_vertices(graph),
-#        "conclusions_09" = select_conclusions_vertices(graph, 
-#                                                       relevance_threshold = 0.9)
-#     
-#   )
-# }
-
 create_vids_list <- function(graph, 
                              vids_list = list(
        "argum_0" = select_argum_vertices(graph),
@@ -780,7 +769,7 @@ create_directed_attrs_functions_list <- function(graph, directed = TRUE,
 "directed_cluster_edge_betweenness_unweighted" = function(graph, ...){
   communities <- cluster_edge_betweenness(graph = graph, weights = NA, directed = directed)
   return(membership(communities))},
-"directed_cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
+"cluster_edge_betweenness_weightedbyrelativeproximity" = function(graph, ...){
   relprox <- edge_attr(graph = graph, name = "rel_proximity")
   communities <- cluster_edge_betweenness(graph = graph, weights = relprox, directed = directed)
   return(membership(communities))}#,
@@ -918,7 +907,7 @@ add_directed_attrs_to_igraph <- function(graph,directed = TRUE, ...) {
 ```
 
 
-I store the list of the enriched directed igraph objects in a rds file. 
+I store the list of the enriched directed igraph objects in an rds file. 
 ```{r warning=FALSE}
 igraphs_directed_att_addition <- read_rds("kuky_data/igraphs_directed_sorted.rds") %>%
    map(~ add_relative_proximity(.x)) %>% 

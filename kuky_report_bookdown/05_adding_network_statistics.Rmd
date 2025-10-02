@@ -1,26 +1,27 @@
+---
+..---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
 # Adding Network-related statistics to the data {#chapter:network-stats}
 
 ## About the input file
-In this chapter, I will work with the `igraph` objects of document-owner pairs (some documents were annotated by several annotators in parallel and I treat each as a separate document; hence most documents are uniquely identified with their `doc_id`, but to uniquely identify a document with multiple annotation one needs the  `doc_id` and `doc_owner` combination. I have added a special column called `metadoc_docname_owner`, which is a concatenation of both in the vertices table. The same column was called `doc_owner` in the edges table and remains among the edge attributes).
 
-The `igraph` objects are all stored in a list stored in the RDS files `igraphs` and `igraphs_sorted.rds`. They differ in that the latter has vertices sorted according to their character offset start. This could allow for placing the vertices on a grid in a linear order similar to the span sequence in the linear text. 
+In this chapter, I will work with the `igraph` objects of document-owner pairs (some documents were annotated by several annotators in parallel and I treat each as a separate document; hence most documents are uniquely identified with their `doc_id`, but to uniquely identify a document with multiple annotation one needs the `doc_id` and `doc_owner` combination. I have added a special column called `metadoc_docname_owner`, which is a concatenation of both in the vertices table. The same column was called `doc_owner` in the edges table and remains among the edge attributes).
 
-The network graphs are non-directed and combine the Stoplight and ArgM annotations. 
+The `igraph` objects are all stored in a list stored in the RDS files `igraphs` and `igraphs_sorted.rds`. They differ in that the latter has vertices sorted according to their character offset start. This could allow for placing the vertices on a grid in a linear order similar to the span sequence in the linear text.
+
+The network graphs are non-directed and combine the Stoplight and ArgM annotations.
 
 ## Design issues
 
-The `igraph` library enables me to compute statistics of individual vertices and edges, whole graphs, and subgraphs. 
+The `igraph` library enables me to compute statistics of individual vertices and edges, whole graphs, and subgraphs.
 
-Some attributes can be computed on the entire graph, but others make more sense when they are computed only on vertices that can connect with others.  
+Some attributes can be computed on the entire graph, but others make more sense when they are computed only on vertices that can connect with others.
 
-The most principal connectedness limitations are: 
-- ArgM-to-ArgM edges can only occur between vertices with these combinations of labels: 
-  - Law-Narrative
-  - Conclusion-Narrative
-  - Conclusion-Conclusion
-  - Law-Conclusion
-  - LegalIssue-Conclusion.
-  
+The most principal connectedness limitations are: - ArgM-to-ArgM edges can only occur between vertices with these combinations of labels: - Law-Narrative - Conclusion-Narrative - Conclusion-Conclusion - Law-Conclusion - LegalIssue-Conclusion.
 
 ```{r message=FALSE}
 library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
@@ -29,13 +30,9 @@ library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
 
 ```
 
-I will add the `igraph`-computed statistics directly to the `igraph object` and eventually export all these variables as data frames of vertices and edges. 
+I will add the `igraph`-computed statistics directly to the `igraph object` and eventually export all these variables as data frames of vertices and edges.
 
-
-I will compute many statistics on three sets of vertices: the complete set of vertices, the subset of vertices that can have edges (henceforth `argum` subset), and the subset of just vertices labeled as Conclusion (henceforth `conclusions` subset). I will use these names throughout the analysis. 
-I will create functions to do this subsetting because I will need to make these selections with a purrr function on a list of `igraph` objects. 
-I have also introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@{section:argm_vertices_stoplight_enriched}. I will compute the statistics on argum and conclusions with different levels of the relevance threshold. In this initial feature extraction, I will use the threshold 0 (relevance neglected) and 0.9 (entirely or almost entirely relevant spans).
-
+I will compute many statistics on three sets of vertices: the complete set of vertices, the subset of vertices that can have edges (henceforth `argum` subset), and the subset of just vertices labeled as Conclusion (henceforth `conclusions` subset). I will use these names throughout the analysis. I will create functions to do this subsetting because I will need to make these selections with a purrr function on a list of `igraph` objects. I have also introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@section:argm_vertices_stoplight_enriched. I will compute the statistics on argum and conclusions with different levels of the relevance threshold. In this initial feature extraction, I will use the threshold 0 (relevance neglected) and 0.9 (entirely or almost entirely relevant spans).
 
 ```{r}
 #igraphs_nondirected <- read_rds("kuky_data/igraphs_nondirected_sorted.rds") # read the original vertices and edges tables produced by scripts in previous files
@@ -50,11 +47,12 @@ select_conclusions_vertices <- function(graph, relevance_threshold = 0){
    
 ```
 
-## A small digression:  Supply edge_proximity as an alternative edge weight to weighted metrics
-My edges have an attribute called `rel_distance`. It shows the proportion of text that lies between the two spans. I would like to supply this as an alternative weight to vertex functions that allow weights.It is a different perspective than the default edge weight, which gives the total proportion of text covered by this pair of vertices.  
-However, `rel_distance` needs to be transformed to `1 - rel_distance` because the intuition says that distance would weaken the connection between two vertices, so we need a sort of inverse value, which will be positional proximity. In fact, the `rel_proximity` is the complement to 1, which represents the entire text (including the text inside the spans in question).  
+## A small digression: Supply edge_proximity as an alternative edge weight to weighted metrics
 
-Here is a function that adds to each `igraph` object. 
+My edges have an attribute called `rel_distance`. It shows the proportion of text that lies between the two spans. I would like to supply this as an alternative weight to vertex functions that allow weights.It is a different perspective than the default edge weight, which gives the total proportion of text covered by this pair of vertices.\
+However, `rel_distance` needs to be transformed to `1 - rel_distance` because the intuition says that distance would weaken the connection between two vertices, so we need a sort of inverse value, which will be positional proximity. In fact, the `rel_proximity` is the complement to 1, which represents the entire text (including the text inside the spans in question).
+
+Here is a function that adds to each `igraph` object.
 
 ```{r}
 add_relative_proximity <- function(graph){
@@ -67,28 +65,23 @@ add_relative_proximity <- function(graph){
 #igraphs <- map(igraphs, add_relative_proximity)
 ```
 
-
-Now back to the main business. 
-
+Now back to the main business.
 
 ## Computation of Vertex attributes
-To compare vertex attribute values across documents, most of them need to be normalized. The normalization mostly means that the given attribute value is divided by the total number of nodes in the network. In my network, not all vertices can have edges. The proportion of connectable vertices varies in networks, and so does the actual connectedness among the connectable ones. I want to keep these two perspectives separate. The former is sufficiently described as `edge_density` of the entire graph, so I actually only want to compute the latter. Therefore I will always compute vertex attributes on the relevant subgraph. 
 
-Note: it must be a subgraph and not just `vids` or `v` arguments in the vertex functions, because this setup would consider all vertices anyway and only add the values to the subset, whereas I need the opposite: to have this attribute in all vertices (with `NA` when irrelevant) and computed only on the relevant ones. 
+To compare vertex attribute values across documents, most of them need to be normalized. The normalization mostly means that the given attribute value is divided by the total number of nodes in the network. In my network, not all vertices can have edges. The proportion of connectable vertices varies in networks, and so does the actual connectedness among the connectable ones. I want to keep these two perspectives separate. The former is sufficiently described as `edge_density` of the entire graph, so I actually only want to compute the latter. Therefore I will always compute vertex attributes on the relevant subgraph.
+
+Note: it must be a subgraph and not just `vids` or `v` arguments in the vertex functions, because this setup would consider all vertices anyway and only add the values to the subset, whereas I need the opposite: to have this attribute in all vertices (with `NA` when irrelevant) and computed only on the relevant ones.
 
 My current setup is to compute the attributes on four vertex subsets, namely "argum" vertices and "conclusions" vertices, each with `relevance_threshold` 0 and 0.9.
 
-Ideally, I want to have a list of setups and a list of functions and a function that would do the subsetting and inserting into the complete graph for any function. I will carefully describe the implementation logic mainly for my future reference of steps that were heavily supported by AI and that I would never have invented myself. 
-
+Ideally, I want to have a list of setups and a list of functions and a function that would do the subsetting and inserting into the complete graph for any function. I will carefully describe the implementation logic mainly for my future reference of steps that were heavily supported by AI and that I would never have invented myself.
 
 ### Setups for vertex description
-Here is a function that takes a graph and a list of vertex subsets and returns it back. 
-The default value of the `vids_list` is the list with my four setups, which happen to be generated with functions, but an `igraph` query would work as well. Note that the function outputs vertex indices, not an entire subgraph! 
 
-This function may be clumsy, but it allows me to:
-- work without the graph being defined, and so I can use it in a map function to run it on a list of igraph objects, which is exactly what I will be doing all the time in this task;
-- have a sensible default but remaining open to different setups without having to edit a lot of code. 
+Here is a function that takes a graph and a list of vertex subsets and returns it back. The default value of the `vids_list` is the list with my four setups, which happen to be generated with functions, but an `igraph` query would work as well. Note that the function outputs vertex indices, not an entire subgraph!
 
+This function may be clumsy, but it allows me to: - work without the graph being defined, and so I can use it in a map function to run it on a list of igraph objects, which is exactly what I will be doing all the time in this task; - have a sensible default but remaining open to different setups without having to edit a lot of code.
 
 ```{r}
 
@@ -106,12 +99,9 @@ return(vids_list)
 
 ```
 
-
 ### Functions list
 
-I want to have a list of names of the new vertex attributes and their associated functions with the appropriate arguments, to use in a future function. Each name in this list is (a part of) the name of an attribute that is going to be added to all nodes in a network.
-(The attribute names may get more complex if they also have to encode on which network subset the function was run.)
-
+I want to have a list of names of the new vertex attributes and their associated functions with the appropriate arguments, to use in a future function. Each name in this list is (a part of) the name of an attribute that is going to be added to all nodes in a network. (The attribute names may get more complex if they also have to encode on which network subset the function was run.)
 
 ```{r}
 create_attrs_functions_list <- function(graph, 
@@ -313,12 +303,7 @@ create_attrs_functions_list <- function(graph,
                                         ), directed = FALSE) {return(func_list)}
 ```
 
-
-
-
-
 ### Function to assign vertex attributes using igraph functions
-
 
 ```{r}
 
@@ -366,10 +351,7 @@ add_attrs_to_igraph <- function(graph,...) {
  
 ```
 
-
-
 ## Computation of Graph attributes
-
 
 ```{r}
 # Named list of vertex attributes
@@ -569,23 +551,23 @@ add_graph_attr_list <- function(graph) {
 
 ```
 
-
 ## Data processing pipeline
-### For non-directed graphs
-For the non-directed graphs, the functions can be used as they are. This is going to be different when I treat the graphs as directed. It is more than the `directed=TRUE/FALSE` argument: many functions in the `attrs_function` list must have the direction of edges set (e.g. in-degree, out-degree) and the columns will need to be named accordingly. 
 
-But this is still the easy setup with the non-directed graphs. 
-Read data, check for duplicate edges (these ought to be removed). In the igraphs data, no multiple edges were detected, so I won't invent any deduplication strategies.  
+### For non-directed graphs
+
+For the non-directed graphs, the functions can be used as they are. This is going to be different when I treat the graphs as directed. It is more than the `directed=TRUE/FALSE` argument: many functions in the `attrs_function` list must have the direction of edges set (e.g. in-degree, out-degree) and the columns will need to be named accordingly.
+
+But this is still the easy setup with the non-directed graphs. Read data, check for duplicate edges (these ought to be removed). In the igraphs data, no multiple edges were detected, so I won't invent any deduplication strategies.
 
 ```{r }
 read_rds("kuky_data/igraphs_nondirected_sorted.rds")   %>% 
   map(~ any_multiple(.x)) %>% map_int(sum) %>% sum()
 ```
 
-I have called all prepared functions to enrich the graph and its vertices with additional attributes computed by igraph. 
-I store the list of enriched igraph objects in a rds file. 
+I have called all prepared functions to enrich the graph and its vertices with additional attributes computed by igraph. I store the list of enriched igraph objects in a rds file.
+
 ```{r warning=FALSE}
-igraphs_nondirected_att_addition <- read_rds("kuky_data/igraphs_nondirected_sorted.rds") %>%
+igraphs_nondirected_att_addition <- read_rds("kuky_data/igraphs_nondirected_sorted.rds")# %>%
    map(~ add_relative_proximity(.x)) %>% 
   map(~ add_attrs_to_igraph(.x, directed = FALSE))     
 igraphs_nondirected_att_addition <- igraphs_nondirected_att_addition %>% map(~ add_graph_attr_list(.x))
@@ -593,7 +575,8 @@ write_rds(igraphs_nondirected_att_addition, "output_files/igraphs_nondirected_ad
 
 ```
 
-I am going to create a data frame of all vertex attributes of all graphs and save them as a tsv file. 
+I am going to create a data frame of all vertex attributes of all graphs and save them as a tsv file.
+
 ```{r}
 igraph_names <- names(igraphs_nondirected_att_addition) 
 vertex_attributes_nondirected_igraphs <- map2(.x = igraph_names,
@@ -602,12 +585,12 @@ vertex_attributes_nondirected_igraphs <- map2(.x = igraph_names,
                                               .progress = "nondirected_vertex_attributes_df"
                                               ) %>% 
   map_df(~ bind_rows(.x))
-write_tsv(vertex_attributes_nondirected_igraphs, "output_files/OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv")
+write_tsv(vertex_attributes_nondirected_igraphs, "output_files/OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv", quote = "all")
 
 ```
 
+Now I am going to create a data frame of the igraph-computed statistics relating to each graph as a whole (graph attributes).
 
-Now I am going to create a data frame of the igraph-computed statistics relating to each graph as a whole (graph attributes). 
 ```{r}
 igraph_names <- names(igraphs_nondirected_att_addition) 
 doc_attributes_nondirected_igraphs <- map2(.x = igraph_names, 
@@ -629,15 +612,12 @@ edges_attributes_nondirected_igraphs <- map2(.x = igraph_names,
                                               .progress = "edges_attributes_df"
                                               ) %>% 
   map_df(~ bind_rows(.x))
-write_tsv(vertex_attributes_nondirected_igraphs, "output_files/OUTPUT_DATA_edge_attributes_igraphs.tsv")
+write_tsv(edges_attributes_nondirected_igraphs, "output_files/OUTPUT_DATA_edge_attributes_igraphs.tsv", quote = "all")
 ```
-
 
 ### For directed graphs
 
-I will need to revisit the attribute list for vertices and maybe even for the entire graph. 
-I will rename the `create_attrs_functions_list` function to `create_directed_attrs_functions_list`.
-
+I will need to revisit the attribute list for vertices and maybe even for the entire graph. I will rename the `create_attrs_functions_list` function to `create_directed_attrs_functions_list`.
 
 ```{r}
 create_directed_attrs_functions_list <- function(graph, directed = TRUE,  
@@ -778,8 +758,7 @@ create_directed_attrs_functions_list <- function(graph, directed = TRUE,
                                         )) {return(func_list)}
 ```
 
-I will also have to adapt the function that adds attributes on the level of the entire graph. 
-
+I will also have to adapt the function that adds attributes on the level of the entire graph.
 
 ```{r}
 # Function to create a list of graph-level attributes
@@ -883,7 +862,7 @@ add_directed_graph_attr_list <- function(graph, directed = TRUE) {
 }
 ```
 
-And here I run the adapted functions on the list of directed graphs to obtain graph statistics for directed graphs on all documents. 
+And here I run the adapted functions on the list of directed graphs to obtain graph statistics for directed graphs on all documents.
 
 ```{r}
 add_directed_attrs_to_igraph <- function(graph,directed = TRUE, ...) {
@@ -906,8 +885,8 @@ add_directed_attrs_to_igraph <- function(graph,directed = TRUE, ...) {
 }
 ```
 
+I store the list of the enriched directed igraph objects in an rds file.
 
-I store the list of the enriched directed igraph objects in an rds file. 
 ```{r warning=FALSE}
 igraphs_directed_att_addition <- read_rds("kuky_data/igraphs_directed_sorted.rds") %>%
    map(~ add_relative_proximity(.x)) %>% 
@@ -917,7 +896,9 @@ igraphs_directed_att_addition <- igraphs_directed_att_addition %>%
 write_rds(igraphs_directed_att_addition, "output_files/igraphs_directed_added_attributes.rds")
 
 ```
-I am going to create a data frame of all vertex attributes of all directed graphs and save them as a tsv file. 
+
+I am going to create a data frame of all vertex attributes of all directed graphs and save them as a tsv file.
+
 ```{r}
 igraph_names <- names(igraphs_directed_att_addition) 
 vertex_attributes_directed_igraphs <- map2(.x = igraph_names,
@@ -926,12 +907,12 @@ vertex_attributes_directed_igraphs <- map2(.x = igraph_names,
                                               .progress = "directed_vertex_attributes_df"
                                               ) %>% 
   map_df(~ bind_rows(.x))
-write_tsv(vertex_attributes_directed_igraphs, "output_files/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv")
+write_tsv(vertex_attributes_directed_igraphs, "output_files/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv", quote = "all")
 
 ```
 
+Now I am going to create a data frame of the igraph-computed statistics relating to each graph as a whole (graph attributes).
 
-Now I am going to create a data frame of the igraph-computed statistics relating to each graph as a whole (graph attributes). 
 ```{r}
 igraph_names <- names(igraphs_directed_att_addition) 
 doc_attributes_directed_igraphs <- map2(.x = igraph_names, 
@@ -941,11 +922,8 @@ doc_attributes_directed_igraphs <- map2(.x = igraph_names,
                                            )
 # the three exclamation marks unfolded the graph_attributes into columns
 doc_attributes_directed_igraphs %<>% map_df(~ bind_rows(.x))
-write_tsv(doc_attributes_directed_igraphs, "output_files/OUPUT_DATA_doc_attributes_directed_igraphs.tsv")
+write_tsv(doc_attributes_directed_igraphs, "output_files/OUPUT_DATA_doc_attributes_directed_igraphs.tsv", quote = "all")
 
 ```
 
-The edge data frame remains the same, no matter whether the graphs are directed or not, so I won't generate it again for directed graphs. 
-
-
-
+The edge data frame remains the same, no matter whether the graphs are directed or not, so I won't generate it again for directed graphs.

@@ -1,302 +1,335 @@
 # Guide to the data files in the `kuky_data` folder
 
 ## List of intermediate output files
-I will list the files in the order of coming into existence. Note that some capture only intermediate results. The ones described in separate sections are those that I consider relevant for further modeling. 
-The input file and the intermediate results are stored in a folder called `kuky_data`. The final output files are stored in a separate folder called `output_files`. 
-Here are the intermediate files, listed: 
+
+I will list the files in the order of coming into existence. Note that some capture only intermediate results. The ones described in separate sections are those that I consider relevant for further modeling. The input file and the intermediate results are stored in a folder called `kuky_data`. The final output files are stored in a separate folder called `output_files`. Here are the intermediate files, listed:
 
 -   `kuky_data/argumentative.json`: from KUKY 1.0 on Lindat
 
-- `kuky_data/ArgM_spans_nested_links.rds`: conversion to a data frame. All spans, but links are nested lists in columns. An important concept here is `owner`: This is the annotator. Some documents have parallel annotation by several annotators (to check the inter-annotator agreement). I keep all annotations, but whenever documents are to be treated individually, I will treat each document-owner pair as a separate document. 
+-   `kuky_data/ArgM_spans_nested_links.rds`: conversion to a data frame. All spans, but links are nested lists in columns. An important concept here is `owner`: This is the annotator. Some documents have parallel annotation by several annotators (to check the inter-annotator agreement). I keep all annotations, but whenever documents are to be treated individually, I will treat each document-owner pair as a separate document.
 
-- `kuky_data/argm.rds`: all spans from json, uncleaned but ArgM only. 
+-   `kuky_data/argm.rds`: all spans from json, uncleaned but ArgM only.
 
-- `kuky_data/frequency_list_of_argmspans.rds`: a data frame of all spans from `argm.rds`, each span-relation on a separate column (unnested lists of links). 
+-   `kuky_data/frequency_list_of_argmspans.rds`: a data frame of all spans from `argm.rds`, each span-relation on a separate column (unnested lists of links).
 
 -   `kuky_data/argumentativeSpanTextsMetadata.rds/.tsv`: produced by Chapter \@ref(chapter:first-preprocessing)
-    
-  - added span text derived from the offsets in the annotation and document metadata to each span. No links yet (at least not in an immediately usable form).
-  
-- `kuky_data/kuky_stoplight(.rds/.tsv)`: produced by Chapter \@ref(chapter:first-preprocessing)
 
- - added span text derived from the offsets in the annotation
- 
-- `kuky_data/kuky_argm_with_all_links_restored(.rds/.tsv)`: produced by Chapter \@ref(chapter:first-preprocessing)
+-   added span text derived from the offsets in the annotation and document metadata to each span. No links yet (at least not in an immediately usable form).
 
- - integrated links in the ArgM annotation and automatically adding links between Conclusion and Rules when they shared a Narrative (as I planned it when I designed the annotation in Gloss to save annotators' effort). 
- 
-- `kuky_data/kuky_argm_total_links.rds/.tsv`: produced by Chapter \@ref(chapter:network-preprocessing)
+-   `kuky_data/kuky_stoplight(.rds/.tsv)`: produced by Chapter \@ref(chapter:first-preprocessing)
 
- - added links between Conclusions that share common Narratives. 
- 
- - I wanted to remove rows representing some spans as unlinked when they got linked during the processing, but it caused a partial data loss. I was not able to trace the problem, so I did not de-duplicate the future edges.
- 
-- `kuky_data/argm_vertices_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). Here I removed some columns irrelevant as machine-learning features. On the other hand, I added a few features concerning the lengths and positions of the span texts, including tokenization and sentence chunking. ArgM annotation only. 
+-   added span text derived from the offsets in the annotation
 
-- `kuky_data/argm_edges_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). I de-duplicated the edges between vertices that just swapped order. ArgM annotation only. Details about the edges see Section \ref@(section:argm_edges)
+-   `kuky_data/kuky_argm_with_all_links_restored(.rds/.tsv)`: produced by Chapter \@ref(chapter:first-preprocessing)
 
-`kuky_data/argm_vertices_stoplight_enriched_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). I added three columns: `Relevant`, `Superfluous`, and `Incomprehensible`. These are Stoplight labels. The values inside these columns is the proportion of the given ArgM span that pertains to this label. By this, I incorporated the Stoplight annotation directly into ArgM. Most ArgM spans are linked to only one Stoplight label, so the proportion is 1.00. A more comprehensive documentation of this data set is described in Section \ref@(section:argm_vertices_stoplight_enriched)
- 
-- `kuky_data/vertices_list.rds`,  `kuky_data/edges_list.rds`: created in Chapter \ref@(chapter:network-analysis). Edges and vertices as data frames ready to go into `igraph`. Each document is going to have its own `igraph` object defined by a pair of vertices and edges data frames. For this, I have created a list of vertices data frames and a list of edges data frames. Both lists are named with identical names that encode the document and the annotation owner. (Mind that some documents have multiple annotation and I am still keeping all options available.) I used the `argm_vertices_stoplight_enriched_df` vertices and `argm_edges` to created these objects. 
+-   integrated links in the ArgM annotation and automatically adding links between Conclusion and Rules when they shared a Narrative (as I planned it when I designed the annotation in Gloss to save annotators' effort).
 
+-   `kuky_data/kuky_argm_total_links.rds/.tsv`: produced by Chapter \@ref(chapter:network-preprocessing)
 
-- `kuky_data/igraphs_directed_sorted.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). The vertices are sorted according to their order of appearance in the document. The graphs are interpreted as directed, that is, the vertices in the first column of the edges data frame were interpreted as source vertices and the vertices in the second column of the edges data frame were interpreted as target vertices.    
+-   added links between Conclusions that share common Narratives.
 
-- `kuky_data/igraphs_nondirected_sorted.rds`: created in Chapter \ref@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). The vertices are sorted according to their order of appearance in the document. The graphs are interpreted as non-directed, that is, the edge between each pair of vertices is bidirectional. 
+-   I wanted to remove rows representing some spans as unlinked when they got linked during the processing, but it caused a partial data loss. I was not able to trace the problem, so I did not de-duplicate the future edges.
 
-- `kuky_data/stoplight_vertices_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). A data frame of vertices of the stoplight annotation. 
+-   `kuky_data/argm_vertices_df.rds/.tsv`: created in Chapter \ref\@(chapter:network-analysis). Here I removed some columns irrelevant as machine-learning features. On the other hand, I added a few features concerning the lengths and positions of the span texts, including tokenization and sentence chunking. ArgM annotation only.
 
-- `kuky_data/stoplight_edges_df.rds/.tsv`: created in Chapter \ref@(chapter:network-analysis). A data frame of edges between the stoplight annotation spans and ArgM annotation spans. 
+-   `kuky_data/argm_edges_df.rds/.tsv`: created in Chapter \ref\@(chapter:network-analysis). I de-duplicated the edges between vertices that just swapped order. ArgM annotation only. Details about the edges see Section \ref\@(section:argm_edges)
 
+`kuky_data/argm_vertices_stoplight_enriched_df.rds/.tsv`: created in Chapter \ref\@(chapter:network-analysis). I added three columns: `Relevant`, `Superfluous`, and `Incomprehensible`. These are Stoplight labels. The values inside these columns is the proportion of the given ArgM span that pertains to this label. By this, I incorporated the Stoplight annotation directly into ArgM. Most ArgM spans are linked to only one Stoplight label, so the proportion is 1.00. A more comprehensive documentation of this data set is described in Section \ref\@(section:argm_vertices_stoplight_enriched)
 
+-   `kuky_data/vertices_list.rds`, `kuky_data/edges_list.rds`: created in Chapter \ref\@(chapter:network-analysis). Edges and vertices as data frames ready to go into `igraph`. Each document is going to have its own `igraph` object defined by a pair of vertices and edges data frames. For this, I have created a list of vertices data frames and a list of edges data frames. Both lists are named with identical names that encode the document and the annotation owner. (Mind that some documents have multiple annotation and I am still keeping all options available.) I used the `argm_vertices_stoplight_enriched_df` vertices and `argm_edges` to created these objects.
 
+-   `kuky_data/igraphs_directed_sorted.rds`: created in Chapter \ref\@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). The vertices are sorted according to their order of appearance in the document. The graphs are interpreted as directed, that is, the vertices in the first column of the edges data frame were interpreted as source vertices and the vertices in the second column of the edges data frame were interpreted as target vertices.
+
+-   `kuky_data/igraphs_nondirected_sorted.rds`: created in Chapter \ref\@(chapter:network-analysis). A list of `igraph` objects of individual document-owner pairs sorted by the initial character position of the span text (offset start, variable `start`). The vertices are sorted according to their order of appearance in the document. The graphs are interpreted as non-directed, that is, the edge between each pair of vertices is bidirectional.
+
+-   `kuky_data/stoplight_vertices_df.rds/.tsv`: created in Chapter \ref\@(chapter:network-analysis). A data frame of vertices of the stoplight annotation.
+
+-   `kuky_data/stoplight_edges_df.rds/.tsv`: created in Chapter \ref\@(chapter:network-analysis). A data frame of edges between the stoplight annotation spans and ArgM annotation spans.
 
 ### Dataset `argm_vertices_enriched_df.rds/tsv` {#section:argm_vertices_stoplight_enriched}
 
-This dataset contains information about each span and its source text. 
-The names of columns containing metadata about the source texts are prefixed with `metadoc_`.
-The names of columns describing the individual spans are prefixed with `span_`.
-Four columns relating to the entire source texts are considered part of the data rather than metadata and their names are prefixed with `doc_`: 
+This dataset contains information about each span and its source text. The names of columns containing metadata about the source texts are prefixed with `metadoc_`. The names of columns describing the individual spans are prefixed with `span_`. Four columns relating to the entire source texts are considered part of the data rather than metadata and their names are prefixed with `doc_`:
 
-- `doc_id`
-- `doc_name`
-- `doc_owner`
-- `doc_plainText`
+-   `doc_id`
+-   `doc_name`
+-   `doc_owner`
+-   `doc_plainText`
 
-There is also a column that uniquely identifies each source text in a somewhat human-readable way (unlike the random alphanumeric ID), which is derived from `doc_name` and `doc_owner`. That is called `metadoc_docname_owner`. I have generated this column to use it as plot titles in `igraph` plots. 
+There is also a column that uniquely identifies each source text in a somewhat human-readable way (unlike the random alphanumeric ID), which is derived from `doc_name` and `doc_owner`. That is called `metadoc_docname_owner`. I have generated this column to use it as plot titles in `igraph` plots.
 
 #### `span_id`
+
 As generated by the annotation tool
 
 #### `span_label`
-One of: 
 
-- Law,
+One of:
 
-- Narrative,
+-   Law,
 
-- Conclusion,
+-   Narrative,
 
-- LegalIssue,
+-   Conclusion,
 
-- Advice,
+-   LegalIssue,
 
-- Request,
+-   Advice,
 
-- Metatext, 
+-   Request,
 
-- Comment
+-   Metatext,
+
+-   Comment
 
 #### `span_start`
-The position of the span's first character in the source text, including markup. 
+
+The position of the span's first character in the source text, including markup.
 
 #### `span_end`
-The position of the span's last character in the source text, including markup. 
+
+The position of the span's last character in the source text, including markup.
 
 #### `span_rel_start`
-The relative position of the span's first character in the source text, including markup, computed as the position divided by the total of positions. 
+
+The relative position of the span's first character in the source text, including markup, computed as the position divided by the total of positions.
 
 #### `span_rel_end`
-The relative position of the span's last character in the source text, including markup, computed as the position divided by the total of positions. 
+
+The relative position of the span's last character in the source text, including markup, computed as the position divided by the total of positions.
 
 #### `span_length`
-The difference between the position of the span's last and first character. 
+
+The difference between the position of the span's last and first character.
 
 #### `span_rel_length`
-The proportion of the source text this span takes, computed as `span_length` divided by the total of positions. 
+
+The proportion of the source text this span takes, computed as `span_length` divided by the total of positions.
 
 #### `span_position_global`
-The order of the given span among all spans in the source text. Only in absolute numbers. 
+
+The order of the given span among all spans in the source text. Only in absolute numbers.
 
 #### `span_position_intralabel`
-The order of the given span among all spans with the same label in the source text. (E.g. the third Narrative found in the text.) Only in absolute numbers. 
+
+The order of the given span among all spans with the same label in the source text. (E.g. the third Narrative found in the text.) Only in absolute numbers.
 
 #### `span_word_count`
-Token count in the given span, obtained by the `tokenizers` library and cleared of most markup with simple regular expressions. 
+
+Token count in the given span, obtained by the `tokenizers` library and cleared of most markup with simple regular expressions.
 
 #### `span_sent_count`
-Count of sentences in the given span, obtained by the `tokenizers`. The spans do not necessarily respect sentence boundariess, so the total of span counts will not equal to the total of sentences that would be recognized in the entire text. 
+
+Count of sentences in the given span, obtained by the `tokenizers`. The spans do not necessarily respect sentence boundariess, so the total of span counts will not equal to the total of sentences that would be recognized in the entire text.
 
 #### `span_text`
-Span text including markup. 
+
+Span text including markup.
 
 #### `span_Relevant`
-The proportion of span overlapping Stoplight span(s) labeled as `Relevant`, based on character counts including markup, rounded to 4 decimal places.  
+
+The proportion of span overlapping Stoplight span(s) labeled as `Relevant`, based on character counts including markup, rounded to 4 decimal places.
 
 #### `span_Superfluous`
-The proportion of span overlapping Stoplight span(s) labeled as `Superfluous`, based on character counts including markup, rounded to 4 decimal places. 
+
+The proportion of span overlapping Stoplight span(s) labeled as `Superfluous`, based on character counts including markup, rounded to 4 decimal places.
 
 #### `span_Incomprehensible`
-The proportion of span overlapping Stoplight span(s) labeled as `Incomprehensible`, based on character counts including markup, rounded to 4 decimal places. 
+
+The proportion of span overlapping Stoplight span(s) labeled as `Incomprehensible`, based on character counts including markup, rounded to 4 decimal places.
 
 #### `metadoc_` columns
-`metadoc_docname_owner` is a concatenation of `doc_name` and `doc_owner`, separated by a double dash.  
-These columns are described in the documentation to [KUKY 1.0](https://lindat.mff.cuni.cz/repository/xmlui/handle/11234/1-5812). 
 
-
+`metadoc_docname_owner` is a concatenation of `doc_name` and `doc_owner`, separated by a double dash.\
+These columns are described in the documentation to [KUKY 1.0](https://lindat.mff.cuni.cz/repository/xmlui/handle/11234/1-5812).
 
 ### Dataset `argm_edges_df.rds/tsv` {#section:argm_edges}
-This section describes the columns of the dataframe of edges (ArgM links between spans within one document). 
-Note that the column names have no prefixes, unlike those in the vertices table. 
+
+This section describes the columns of the dataframe of edges (ArgM links between spans within one document). Note that the column names have no prefixes, unlike those in the vertices table.
 
 #### `span_id`
-ID of the span that happens to be the source, purely for technical reasons. 
-The resulting graph is not directed. 
+
+ID of the span that happens to be the source, purely for technical reasons. The resulting graph is not directed.
 
 #### `linked_span_id`
-ID of the span that happens to be the source, purely for technical reasons. 
-The resulting graph is not directed. 
+
+ID of the span that happens to be the source, purely for technical reasons. The resulting graph is not directed.
 
 #### `link_type`
+
 One of the following values:
 
-- Law-Conclusion,
-- Law-Narrative,
-- Conclusion-Conclusion,
-- Narrative-Conclusion,
-- LegalIssue-Conclusion.
-
+-   Law-Conclusion,
+-   Law-Narrative,
+-   Conclusion-Conclusion,
+-   Narrative-Conclusion,
+-   LegalIssue-Conclusion.
 
 #### `docname_owner`
-Like in the vertices table, concatenated `doc_name` and `doc_owner`, separated by a double dash. 
+
+Like in the vertices table, concatenated `doc_name` and `doc_owner`, separated by a double dash.
 
 #### `owner`
-The ID of the annotator, generated by the annotation tool. 
+
+The ID of the annotator, generated by the annotation tool.
 
 #### `doc_id`
-The ID of the document, generated by the annotation tool. 
+
+The ID of the document, generated by the annotation tool.
 
 #### `doc_name`
-The ID of the document, generated by the annotation tool from the name of the input file. 
+
+The ID of the document, generated by the annotation tool from the name of the input file.
 
 #### `weight`
-A value between 0 and 1. It is the sum of the relative length of both vertices connected by this edge, that is, the sum of their values of `span_rel_length` in the vertices table, in characters, including markup). 
 
-The rationale behind this value as weight is that it can help trace well-founded conclusions with eigenvector centrality, abstracting from annotator's individual preferences for splitting vs. lumping equal-labeled statements when marking them with spans.  
+A value between 0 and 1. It is the sum of the relative length of both vertices connected by this edge, that is, the sum of their values of `span_rel_length` in the vertices table, in characters, including markup).
+
+The rationale behind this value as weight is that it can help trace well-founded conclusions with eigenvector centrality, abstracting from annotator's individual preferences for splitting vs. lumping equal-labeled statements when marking them with spans.
 
 #### `rel_distance`
-A value between 0 and 1. It is the proportion of text (in characters, including markup) that spans between the relative end position (`span_rel_end` in the vertices table) of the earlier vertex and the relative start position (`span_rel_start` in the vertices table) of the later vertex, computed as their difference. Always a positive number. 
+
+A value between 0 and 1. It is the proportion of text (in characters, including markup) that spans between the relative end position (`span_rel_end` in the vertices table) of the earlier vertex and the relative start position (`span_rel_start` in the vertices table) of the later vertex, computed as their difference. Always a positive number.
 
 #### `rel_proximity`
-I will also use this attribute as an alternative weight in eigenvector centrality and similar measures, after a transformation to 1-`rel_distance`. The reason is my assumption that positional proximity of two spans ought to increase their connection, whereas positional distance ought to decrease it. 
 
+I will also use this attribute as an alternative weight in eigenvector centrality and similar measures, after a transformation to 1-`rel_distance`. The reason is my assumption that positional proximity of two spans ought to increase their connection, whereas positional distance ought to decrease it.
 
 ## List of Final output files
-These are files that are meant for further analysis. They are stored in a separate folder called `output_files` and were all created in Chapter \ref@(chapter:network-stats).
 
-- `output_files/igraphs_nondirected_added_attributes.rds`, `output_files/igraphs_nondirected_added_attributes.rds`: all documents treated as non-directed igraph objects, with attributes on vertices, edges, and the entire graph. These files are RDS objects, lists of igraphs. 
+These are files that are meant for further analysis. They are stored in a separate folder called `output_files` and were all created in Chapter \ref\@(chapter:network-stats).
 
-- `output_files/OUTPUT_DATA_doc_attributes_directed_igraphs.tsv` and 
-`output_files/OUTPUT_DATA_doc_attributes_nondirected_igraphs.tsv` 
-are final output files with igraph-computed attributes on the level of the entire graph. 
+-   `output_files/igraphs_nondirected_added_attributes.rds`, `output_files/igraphs_nondirected_added_attributes.rds`: all documents treated as non-directed igraph objects, with attributes on vertices, edges, and the entire graph. These files are RDS objects, lists of igraphs.
 
-- `output_files/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv` and 
-`output_files/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv`
-are final output files with igraph-computed attributes on the level of individual vertices. 
+-   `output_files/OUTPUT_DATA_doc_attributes_directed_igraphs.tsv` and `output_files/OUTPUT_DATA_doc_attributes_nondirected_igraphs.tsv` are final output files with igraph-computed attributes on the level of the entire graph.
 
-- `output_files/OUTPUT_DATA_edge_attributes_igraphs.tsv` are final output files with attributes that were computed before the edge data frames entered igraph, but I have generated them from the igraph objects again just to have the entire collection of attributes together. Most of these edge attributes are actually just metadata about the entire documents, not very helpful, but the relative proximity (inverted distance in relative character positions) between the paired vertices could be useful.    
+-   `output_files/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv` and `output_files/OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv` are final output files with igraph-computed attributes on the level of individual vertices.
 
+-   `output_files/OUTPUT_DATA_edge_attributes_igraphs.tsv` are final output files with attributes that were computed before the edge data frames entered igraph, but I have generated them from the igraph objects again just to have the entire collection of attributes together. Most of these edge attributes are actually just metadata about the entire documents, not very helpful, but the relative proximity (inverted distance in relative character positions) between the paired vertices could be useful.
 
 ### Dataset OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv
-The input was the list of igraph objects, all read in as directed. The `directed` argument is important, since many functions give different results for either or do not work with one at all.
-Another parameter in my case was the subsets of the graph (possible combinations of `argum` vs. `conclusions` vs. entire graph, relevance threshold). 
-I used two alternating weights setups: the text proportion covered by the two vertices on the one hand and their relative proximity on the other hand. The relative proximity is 1 - their relative distance. Their relative distance is the difference between the relative position of the relative start position of the later occurring vertex and the relative end position of the earlier occurring vertex.  
+
+The input was the list of igraph objects, all read in as directed. The `directed` argument is important, since many functions give different results for either or do not work with one at all. Another parameter in my case was the subsets of the graph (possible combinations of `argum` vs. `conclusions` vs. entire graph, relevance threshold). I used two alternating weights setups: the text proportion covered by the two vertices on the one hand and their relative proximity on the other hand. The relative proximity is 1 - their relative distance. Their relative distance is the difference between the relative position of the relative start position of the later occurring vertex and the relative end position of the earlier occurring vertex.
 
 #### Degree
+
 Combinations of in, out, normalized, non-normalized.
 
 #### Closeness
+
 Combinations of weighted by either weighting variable or unweighted, in, out, but always normalized.
 
 #### Betweenness
+
 Combinations of weighted by either weighting variable, or unweighted and always normalized, always `directed = TRUE`.
 
 #### Page Rank
+
 Combination of weighted by either weighting variable or unweighted, always directed. I chose the algorithm `prpack`. It was not a conscious choice: it was either default, or the script did not work with the other algorithm, which was called `arpack`.
 
 #### Eccentricity
+
 Combination of weighted by either weighting variable or unweighted, in, out.
 
 #### Coreness
+
 Just in and out.
 
 #### Cluster infomap
-Stochastic community detection method, `set.seed(422)`, combinations of either weighting variable or unweighted . The documentation of the function says that directions of edges are taken into account. It's implicit, no argument to set.  
+
+Stochastic community detection method, `set.seed(422)`, combinations of either weighting variable or unweighted . The documentation of the function says that directions of edges are taken into account. It's implicit, no argument to set.
 
 #### Cluster `label_prop`
-Stochastic community detection method, the same seed. Combinations of either weighting variable or unweighted and in vs. out. 
+
+Stochastic community detection method, the same seed. Combinations of either weighting variable or unweighted and in vs. out.
 
 #### Cluster Edge Betweenness
+
 Deterministic community detection method. Combinations of either weighting variable or unweighted, all with `directed = FALSE`.
 
-
 ### Dataset OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv
+
 #### Degree
-Combinations of normalized vs. absolute, weighted by either weighting variable or unweighted. 
+
+Combinations of normalized vs. absolute, weighted by either weighting variable or unweighted.
 
 #### Closeness
-Always normalized, weighted by either weighting variable or unweighted. 
+
+Always normalized, weighted by either weighting variable or unweighted.
 
 #### Betweenness
+
 Options of weighted by either weighting variable, or unweighted and always normalized, always `directed = TRUE`.
 
 #### Page Rank
-Options weighted by either weighting variable or unweighted, computed with algorithm `prpack`, which was random choice with the other option `arpack`. 
+
+Options weighted by either weighting variable or unweighted, computed with algorithm `prpack`, which was random choice with the other option `arpack`.
 
 #### Eccentricity
-Options weighted by either weighting variable or unweighted, always normalized. 
+
+Options weighted by either weighting variable or unweighted, always normalized.
 
 #### Coreness
-This has just the `mode` option, so `in` and `out`. 
 
+This has just the `mode` option, so `in` and `out`.
 
 #### Cluster infomap
+
 Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted, other arguments at default values (`nb.trials = 10, modularity = TRUE`).
 
 #### Cluster label prop
+
 Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted , other arguments at default values.
 
 #### Cluster edge betweennes
-All weight options, `directed = FALSE`. 
 
-
+All weight options, `directed = FALSE`.
 
 ### Dataset OUTPUT_DATA_doc_attributes_directed_igraphs.tsv
+
 #### Graph diameter
+
 All weights options, `unconnected = TRUE`
 
 #### Eigenvector centralization (centralization and theoretical max)
+
 All weights options
 
 ### Dataset OUTPUT_DATA_vertex_attributes_nondirected_igraphs.tsv
-This dataset contains the same statistics as the dataset `OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv` (with `mode = all` and `directed = FALSE` whenever relevant). Moreover, it contains some statistics that are specific to non-directed graphs. 
+
+This dataset contains the same statistics as the dataset `OUTPUT_DATA_vertex_attributes_directed_igraphs.tsv` (with `mode = all` and `directed = FALSE` whenever relevant). Moreover, it contains some statistics that are specific to non-directed graphs.
 
 #### Transitivity (local)
+
 Options of weighted by either weighting variable or unweighted, always with `isolates = "zero"` (i.e. unconnected nodes are counted to the total number of nodes)
 
 #### Cluster Louvain
+
 Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted.
 
 #### Cluster walktrap
+
 Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted, other arguments at default values (`steps = 4`, `merges = FALSE`, `modularity = TRUE`).
 
 #### Cluster fast greedy
+
 Membership communities computed by this stochastic algorithm, `set.seed(422)`, weighted by either weighting variable or unweighted , other arguments at default values.
 
 #### Cluster Leiden
-Combination of weights options and resolution options at 0.1, 0.5, and 1.0; always  `set.seed(422)`, `objective_function = "CMP"`, other arguments at their default values. 
+
+Combination of weights options and resolution options at 0.1, 0.5, and 1.0; always `set.seed(422)`, `objective_function = "CMP"`, other arguments at their default values.
 
 ### Dataset OUTPUT_DATA_doc_attributes_nondirected_igraphs.tsv
-Some attributes do not consider the edge directions, so I have only computed them for the non-directed graphs and hence they are not listed with the attributes of the directed igraphs objects. 
+
+Some attributes do not consider the edge directions, so I have only computed them for the non-directed graphs and hence they are not listed with the attributes of the directed igraphs objects.
 
 #### Edge density
+
 All weights options.
 
 #### Edge count, Vertex count
-self-explaining
 
+self-explaining
 
 ### Dataset OUTPUT_DATA_edge_attributes_igraphs.tsv
 
 See \@ref(section:argm_edges).
-

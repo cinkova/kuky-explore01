@@ -1,0 +1,307 @@
+---
+title: "Preparation of normative texts"
+format: html
+editor: visual
+---
+
+## 
+
+```{r message=FALSE}
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(magrittr, warn.conflicts = FALSE, quietly = TRUE)
+library(jsonlite, warn.conflicts = FALSE, quietly = TRUE)
+wdpath <- "C:/Users/cinkova/kuky-explore01/kuky_report_bookdown/"
+# working directory
+kukypath <- "C:/Users/cinkova/kuky-explore01/kuky_report_bookdown/kuky_data/normative.json"
+# location of the original corpus file
+datafolderpath <- "C:/Users/cinkova/kuky-explore01/kuky_report_bookdown/kuky_data/"
+# location of the folder containing the corpus 
+# - other data objects will go here as well
+setwd(wdpath)
+kuky <- read_json(kukypath, simplifyVector = FALSE)
+docs <- kuky[[1]] %>% 
+  purrr::map_df(bind_rows) %>%
+  mutate(across(where(is.list), unlist))
+#docs converted to a tibble 
+if (!exists("annots")  &  file.exists(str_c(datafolderpath, "normativeSpanTextsMetadata.rds", sep = "/"))) {
+annots <- read_rds("kuky_data/normativeSpanTextsMetadata.rds")
+} else if (!exists("annots") & !file.exists(str_c(datafolderpath, "normativeSpanTextsMetadata.rds", sep = "/"))) {
+  stop ("Please run this script from the start to obtain the 'annots' object.")
+} else {
+
+annots <- kuky[[3]] %>% 
+  map(enframe) %>%
+  # could not bind rows just so, 
+  # probably due to non-empty list columns "linked_rules", "linked_conclusions" 
+  map(pivot_wider) %>% 
+  # enframe returned a df with 2 columns: name and value
+  # df had to be transformed 
+  bind_rows()
+# df still considers each column a list
+annots %<>% distinct()
+write_rds(annots, "kuky_data/ArgM_normative_spans.rds")
+annots %<>% 
+  mutate(across(c("doc_id", "doc_name", 
+                  "task_type", "label", "start", "end", 
+                  "span_id", "type", "owner"), ~ unlist(.x))) 
+#%>% 
+  # columns unlisted to vectors, except "linked_rules/conclusions", 
+  # which remained lists of vectors. 
+  # Mind to keep empty elements if you ever tidyr::unnest_longer them. 
+annots %<>%  left_join(docs, by = c("doc_id", "doc_name"))
+# doc metadata and document texts added
+annots %<>% mutate(span_text = str_sub(plainText, start=start, end=end))
+
+# added span texts by extraction from the documents using the offsets.
+saveRDS(annots, file = "kuky_data/normativeSpanTextsMetadata.rds")
+write_tsv(annots, file = "kuky_data/normativeSpanTextsMetadata.tsv")
+}
+```
+
+```{r}
+# check that all spans contain text, must return zero
+annots %>% 
+  filter(nchar(span_text) == 0 | is.na(span_text)| is.null(span_text)) %>% 
+  nrow()
+```
+
+```{r}
+stoplight <- annots %>% filter(task_type == "Stoplight")
+# store stoplight annotation that has no links by definition
+argm <- annots %>% filter(task_type == "ArgM")
+write_rds(stoplight, "kuky_data/kuky_normative_stoplight.rds")
+write_tsv(stoplight, "kuky_data/kuky_normative_stoplight.tsv")
+write_rds(argm, "kuky_data/kuky_normative_argm.rds")
+write_tsv(argm, "kuky_data/kuky_normative_argm.tsv")
+```
+
+```{r}
+argm_vertices_df <- argm %>% group_by(doc_id, owner) %>% 
+  mutate(max_end = max(end)) %>% 
+  rowwise() %>% 
+  mutate(rel_start = round(start/max_end, 4), 
+         rel_end = round(end/max_end, 4),
+         span_length = (end - start )
+         ) %>% 
+  mutate(rel_length = round(span_length/max_end, 4)) %>%
+  # mutate(across(label, ~ str_replace_all(.x, c("Pravidlo" = "Law", 
+  #                                              "P....h" = "Narrative", 
+  #                                              "Z.v.r" = "Conclusion", 
+  #                                              "Pr.vn...t.zka" = "LegalIssue",
+  #                                              "Rada" = "Advice", 
+  #                                              "V.zva" = "Request",
+  #                                              "Koment.*" = "Comment"
+  #                                              )))) %>% 
+  group_by(doc_id, owner) %>%
+  mutate(span_position_global = rank(start, ties.method = "first")) %>% 
+  group_by(doc_id, owner, label) %>%
+  mutate(span_position_intralabel = rank(start, ties.method = "first")) %>%
+  ungroup() %>%
+  mutate(docname_owner = str_c(doc_name, owner, sep = "--"))  %>% 
+  rename_with(.cols = c("plainText", "owner", 
+                        "docname_owner", "Readability", "SyllogismBased",
+                        "DocumentVersion", "ParentDocumentID", "LegalActType",
+                        "Objectivity", "Bindingness", "AuthorType", 
+                        "RecipientType", "RecipientIndividuation","Anonymized"), 
+              .fn = ~ str_c("doc_", .x)) %>% 
+  relocate(starts_with("doc_"),.after = everything()) %>% 
+  rename_with(.cols = c(!matches("^(doc_|span)")), 
+              .fn = ~ str_c("span_", .x))
+texts <- argm_vertices_df$span_text %>% 
+  str_remove_all("(\\*|#|=|--|\\[(\\d|\\.|\\^)+\\]|\\{[^}]+\\}|[\\\\])")  
+  words <-  purrr::map_vec(texts, ~ tokenizers::tokenize_words(.x)) %>% 
+    map_int(length)
+  sentences <-  purrr::map_vec(texts, ~ tokenizers::tokenize_sentences(.x)) %>% 
+    map_int(length)
+  
+  argm_vertices_df %<>% bind_cols("span_word_count" = words, "span_sent_count" = sentences, .name_repair = "unique")
+write_rds(argm_vertices_df, "kuky_data/argm_normative_vertices_df.rds")
+write_tsv(argm_vertices_df, "kuky_data/argm_normative_vertices_df.tsv")
+```
+
+
+# pridat Stoplight annotation z 04_network_preprocessing02
+```{r}
+stoplight <- read_rds("kuky_data/kuky_normative_stoplight.rds") %>%
+  mutate(across(label, 
+                ~ str_replace_all(.x, c("1_.*" = "Incomprehensible",
+                                        "2_.*" = "Superfluous", 
+                                        "3_.*" = "Relevant", 
+                                        "koment.*" = "Comment"
+                                        )))) %>% 
+  #select(!c(type, starts_with("linked_"), note)) %>% 
+  relocate(span_id) %>% distinct() %>%
+  group_by(doc_id, owner) %>% 
+  mutate(max_end = max(end)) %>% 
+  rowwise() %>% 
+  mutate(rel_start = round(start/max_end, 4), 
+         rel_end = round(end/max_end, 4),
+         span_length = (end - start )
+         ) %>% 
+  mutate(rel_length = round(span_length/max_end, 4)) %>% 
+  group_by(doc_id, owner) %>%
+  mutate(span_position_global = rank(start, ties.method = "first")) %>% 
+  group_by(doc_id, owner, label) %>%
+  mutate(span_position_intralabel = rank(start, ties.method = "first")) %>%
+  ungroup() %>%
+  mutate(docname_owner = str_c(doc_name, owner, sep = "--"))  %>% 
+  rename_with(.cols = c("plainText", "owner", 
+                        "docname_owner", "Readability", "SyllogismBased",
+                        "DocumentVersion", "ParentDocumentID", "LegalActType",
+                        "Objectivity", "Bindingness", "AuthorType", 
+                        "RecipientType", "RecipientIndividuation","Anonymized"), 
+              .fn = ~ str_c("doc_", .x)) %>% 
+  relocate(starts_with("doc_"),.after = everything()) %>% 
+  rename_with(.cols = c(!matches("^(doc_|span)")), 
+              .fn = ~ str_c("span_", .x))
+
+texts <- stoplight$span_text %>% 
+  str_remove_all("(\\*|#|=|--|\\[(\\d|\\.|\\^)+\\]|\\{[^}]+\\}|[\\\\])")  
+  words <-  purrr::map_vec(texts, ~ tokenizers::tokenize_words(.x)) %>% 
+    map_int(length)
+  sentences <-  purrr::map_vec(texts, ~ tokenizers::tokenize_sentences(.x)) %>% 
+    map_int(length)
+  
+stoplight_vertices_df <- stoplight %>% bind_cols("span_word_count" = words, "span_sent_count" = sentences, .name_repair = "unique")
+write_rds(stoplight_vertices_df, "kuky_data/stoplight_normative_vertices_df.rds")
+write_tsv(stoplight_vertices_df, "kuky_data/stoplight_normative_vertices_df.tsv")
+  
+```
+
+
+
+
+
+
+## spoj argm a stoplight
+
+```{r}
+# dplyr join, use join_by
+# Find every time a segment overlaps a reference in any way.
+#by <- join_by(chromosome, overlaps(x$start, x$end, y$start, y$end))
+#full_join(segments, reference, by)
+
+by_overlaps <- dplyr::join_by(doc_id, 
+                              doc_owner, 
+                              doc_name, 
+                              doc_plainText,
+                              doc_Readability,
+                              doc_SyllogismBased,
+                              doc_DocumentVersion,
+                              doc_LegalActType,
+                              doc_Objectivity,
+                              doc_Bindingness, 
+                              doc_AuthorType,
+                              doc_RecipientType, 
+                              doc_RecipientIndividuation,
+                              doc_Anonymized,
+                              doc_ParentDocumentID, doc_docname_owner,
+                              overlaps(x$span_start,
+                                      x$span_end, 
+                                      y$span_start,
+                                      y$span_end))
+combined_normative_markup <- stoplight_vertices_df %>%
+  full_join(argm_vertices_df, by = by_overlaps, multiple = "all" ) %>% 
+  mutate(link_type = "Stoplight_ArgM") #%>%
+ # unite(col = "doc_docname_owner", doc_name, doc_owner, remove = FALSE ) #%>%
+ # select(stoplight_label = span_label.x, span_label = span_label.y, 
+ #        span_start = span_start.y, span_end = span_end.y, 
+ #        span_id = span_id.y, span_type = span_type.y, span_note = span_note.y,
+ #        span_text = span_text.y, span_max_end = span_max_end.y, 
+ #        span_rel_start = span_rel_start.y, span_rel_end = span_rel_end.y, 
+ #        span_length = span_length.y, span_rel_length = span_rel_length.y,
+ #        span_position_global.y = span_position_global.y, 
+ #        span_position_intralabel = span_position_intralabel.y,
+ #        doc_id = doc_id.y, doc_name = doc_name.y, doc_owner = doc_owner.y, 
+ #        doc_plainText = doc_plainText.y, doc_Readability = doc_Readability.y,
+ #        doc_SyllogismBased = doc_SyllogismBased.y, 
+ #        doc_DocumentVersion = doc_DocumentVersion.y,
+ #        doc_LegalActType = doc_LegalActType.y, 
+ #        doc_Objectivity = doc_Objectivity.y, doc_Bindingness = doc_Bindingness.y,
+ #        doc_AuthorType = doc_AuthorType.y, 
+ #        doc_RecipientType = doc_RecipientType.y,
+ #        doc_RecipientIndividuation = doc_RecipientIndividuation.y, 
+ #        doc_Anonymized = doc_Anonymized.y, 
+ #        doc_ParentDocumentID = doc_ParentDocumentID.y,
+ #        doc_docname_owner = doc_docname_owner.y, 
+ #        span_word_count = span_word_count.y, 
+ #        span_sent_count = span_sent_count.y
+ #        )
+
+```
+
+
+```{r}
+enrichment <- combined_normative_markup %>% 
+  rowwise() %>% 
+  mutate(overlap = max(0, min(span_end.x, span_end.y) - max(span_start.x, span_start.y))) %>% 
+  ungroup() %>% 
+  group_by(span_label.y, span_id.y) %>% 
+  mutate(overlap_samelabel = sum(overlap,na.rm = TRUE)) %>% # sum is correct here 
+  # to abstract from boundaries between spans with the same stoplight label
+  # #group_by(span_label.y, span_id.y) %>% 
+  # ungroup()  %>% 
+  # #mutate(proportion_stoplight_label = overlap_samelabel/sum(overlap, na.rm = TRUE)) %>% tohle davalo blbosti, v argumentativnich textech to mozna tak bylo spravne, ale tady ne
+  mutate(proportion_stoplight_label = round(overlap/overlap_samelabel, 2)) %>% 
+ # select(!c(contains("text"), 10:42)) %>% 
+  # summarize(check = sum(proportion_stoplight_label)) #ok, dalo vsude jednicku
+  ungroup() %>% 
+  pivot_wider(names_from = span_label.x,id_cols = !c(span_id.y, span_label.y), 
+              names_sep = "_", values_from = proportion_stoplight_label, 
+              values_fn = sum, values_fill = 0) %>% 
+  select(
+    span_start = span_start.y, 
+    span_end = span_end.y, 
+    #span_type = span_type.y, 
+    #span_note = span_note.y,
+    span_text = span_text.y, 
+    span_max_end = span_max_end.y,
+    span_rel_start = span_rel_start.y, 
+    span_rel_end = span_rel_end.y,
+    span_length = span_length.y, 
+    span_rel_length = span_rel_length.y,
+    span_position_global = span_position_global.y,
+    span_position_intralabel = span_position_intralabel.y,
+    span_Relevant = Relevant,
+    span_Incomprehensible = Incomprehensible,
+    span_Superfluous = Superfluous,
+    doc_id , 
+    doc_name, 
+    doc_owner,
+    doc_plainText, 
+    doc_Readability,
+    doc_SyllogismBased,
+    doc_DocumentVersion,
+    doc_LegalActType,
+    doc_Objectivity, 
+    doc_Bindingness,
+    doc_AuthorType,
+    doc_RecipientType,
+    doc_RecipientIndividuation,
+    doc_Anonymized,
+    doc_ParentDocumentID,
+    metadoc_docname_owner = doc_docname_owner#,
+    #span_note = span_note.y
+  ) %>% 
+  rowwise() %>%
+  mutate(span_word_count = length(tokenize_words(span_text, simplify = TRUE)),
+         span_sent_count = length(tokenize_sentences(span_text, simplify = TRUE))) %>%
+  ungroup() 
+
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+

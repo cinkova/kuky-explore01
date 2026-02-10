@@ -1,9 +1,4 @@
----
-..---
-editor_options: 
-  markdown: 
-    wrap: 72
----
+
 
 # Adding Network-related statistics to the data {#chapter:network-stats}
 
@@ -35,7 +30,7 @@ I will add the `igraph`-computed statistics directly to the `igraph object` and 
 I will compute many statistics on three sets of vertices: the complete set of vertices, the subset of vertices that can have edges (henceforth `argum` subset), and the subset of just vertices labeled as Conclusion (henceforth `conclusions` subset). I will use these names throughout the analysis. I will create functions to do this subsetting because I will need to make these selections with a purrr function on a list of `igraph` objects. I have also introduced a `relevance_threshold`, that has a default at 0. If set to larger than 0, vertices that have a smaller value in the `span_Relevant` column are omitted. Their values range from 0 to 1. For more detail about the Stoplight annotation and how it is mapped on the ArgM spans see Section \ref@section:argm_vertices_stoplight_enriched. I will compute the statistics on argum and conclusions with different levels of the relevance threshold. In this initial feature extraction, I will use the threshold 0 (relevance neglected) and 0.9 (entirely or almost entirely relevant spans).
 
 ```{r}
-#igraphs_nondirected <- read_rds("kuky_data/igraphs_nondirected_sorted.rds") # read the original vertices and edges tables produced by scripts in previous files
+igraphs_nondirected <- read_rds("kuky_data/igraphs_nondirected_sorted.rds") # read the original vertices and edges tables produced by scripts in previous files
 select_argum_vertices <- function(graph, relevance_threshold = 0) {
   V(graph)[span_label %in% c("Law", "Narrative","Conclusion", 
                                     "LegalIssue") & span_Relevant >= relevance_threshold]

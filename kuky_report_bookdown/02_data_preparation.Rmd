@@ -1,3 +1,8 @@
+---
+output:
+  html_document: default
+  word_document: default
+---
 # Data Preprocessing of KUKY 1.0 {#chapter:first-preprocessing}
 
 ## KUKY JSON structure
